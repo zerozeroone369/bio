@@ -1154,14 +1154,18 @@ const server = http.createServer(async (req, res) => {
       }
 
       saveDatabase(db);
-      try {
-        await dbLayer.saveBioData(uname || (user && user.username), payload);
-      } catch (errSync) {
-        console.warn('[MongoDB Sync] Bio sync note:', errSync.message);
-      }
 
+      // Return immediate response so client gets instant confirmation (<50ms)
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, message: 'Đã lưu trang Bio thành công trên máy chủ!' }));
+
+      // Background sync to dbLayer (non-blocking)
+      Promise.resolve().then(() => {
+        return dbLayer.saveBioData(uname || (user && user.username), payload);
+      }).catch(errSync => {
+        console.warn('[MongoDB Sync] Bio sync note:', errSync.message);
+      });
+      return;
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: false, error: e.message }));

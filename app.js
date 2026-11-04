@@ -839,49 +839,6 @@ async function saveCurrentBioToUserAsync(showSuccessFeedback = true, btnElem = n
     return false;
   }
 
-  // Sync any active form inputs into state before saving
-  if (dom.userNameInput && dom.userNameInput.value) state.name = dom.userNameInput.value;
-  if (dom.userBioInput) state.bio = dom.userBioInput.value;
-  if (dom.userSlugInput && dom.userSlugInput.value) {
-    state.username = dom.userSlugInput.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-  }
-
-  const studioName = document.getElementById('studioNameInput');
-  if (studioName && studioName.value) state.name = studioName.value;
-  const studioBio = document.getElementById('studioBioInput');
-  if (studioBio) state.bio = studioBio.value;
-
-  const targetUsername = (state.username || currentUser.username || 'user').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-  state.username = targetUsername;
-
-  const bioPayload = {
-    name: state.name || currentUser.name || targetUsername,
-    username: targetUsername,
-    email: currentUser.email,
-    bio: state.bio !== undefined ? state.bio : '',
-    avatar: state.avatar || currentUser.avatar || 'assets/avatar_abg.jpg',
-    theme: state.theme || 'rainy_night',
-    links: (state.links || []).map((l, i) => ({
-      id: l.id || (Date.now() + i),
-      title: (l.title || '').trim() || 'Liên kết',
-      url: normalizeExternalUrl(l.url || '#')
-    })),
-    socials: {
-      instagram: normalizeExternalUrl(state.socials.instagram || ''),
-      tiktok: normalizeExternalUrl(state.socials.tiktok || ''),
-      youtube: normalizeExternalUrl(state.socials.youtube || ''),
-      facebook: normalizeExternalUrl(state.socials.facebook || '')
-    },
-    video: {
-      url: state.video.url || "",
-      name: state.video.name || "",
-      size: state.video.size || "",
-      overlay: state.video.overlay !== undefined ? state.video.overlay : 40,
-      blur: state.video.blur !== undefined ? state.video.blur : 0,
-      muted: state.video.muted !== undefined ? state.video.muted : true
-    }
-  };
-
   // Visual button spinner if button passed
   let originalBtnHtml = '';
   if (btnElem) {
@@ -893,32 +850,113 @@ async function saveCurrentBioToUserAsync(showSuccessFeedback = true, btnElem = n
     `;
   }
 
-  // Update in memory and local storage
-  currentUser.username = targetUsername;
-  currentUser.name = bioPayload.name;
-  currentUser.avatar = bioPayload.avatar;
-  currentUser.bioData = bioPayload;
-  localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
-
-  // Sync to local database
-  const db = getUsersDatabase();
-  if (currentUser.email && db[currentUser.email.toLowerCase()]) {
-    db[currentUser.email.toLowerCase()].username = targetUsername;
-    db[currentUser.email.toLowerCase()].name = bioPayload.name;
-    db[currentUser.email.toLowerCase()].avatar = bioPayload.avatar;
-    db[currentUser.email.toLowerCase()].bioData = bioPayload;
-    saveUsersDatabase(db);
-  }
-
   try {
-    const res = await fetch('/api/save-bio', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('biolink_token') || ''}`
+    // 1. Sync any active form inputs into state before saving
+    if (dom.userNameInput && dom.userNameInput.value) state.name = dom.userNameInput.value.trim();
+    if (dom.userBioInput) state.bio = dom.userBioInput.value;
+    if (dom.userSlugInput && dom.userSlugInput.value) {
+      state.username = dom.userSlugInput.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    }
+
+    const studioName = document.getElementById('studioNameInput');
+    if (studioName && studioName.value) state.name = studioName.value.trim();
+    const studioBio = document.getElementById('studioBioInput');
+    if (studioBio) state.bio = studioBio.value;
+
+    const targetUsername = (state.username || currentUser.username || 'user').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    state.username = targetUsername;
+
+    const bioPayload = {
+      name: state.name || currentUser.name || targetUsername,
+      username: targetUsername,
+      email: currentUser.email,
+      bio: state.bio !== undefined ? state.bio : '',
+      avatar: state.avatar || currentUser.avatar || 'assets/avatar_abg.jpg',
+      theme: state.theme || 'rainy_night',
+      links: (state.links || []).map((l, i) => ({
+        id: l.id || (Date.now() + i),
+        title: (l.title || '').trim() || 'Liên kết',
+        url: normalizeExternalUrl(l.url || '#')
+      })),
+      socials: {
+        instagram: normalizeExternalUrl(state.socials.instagram || ''),
+        tiktok: normalizeExternalUrl(state.socials.tiktok || ''),
+        youtube: normalizeExternalUrl(state.socials.youtube || ''),
+        facebook: normalizeExternalUrl(state.socials.facebook || '')
       },
-      body: JSON.stringify(bioPayload)
-    });
+      video: {
+        url: state.video.url || "",
+        name: state.video.name || "",
+        size: state.video.size || "",
+        overlay: state.video.overlay !== undefined ? state.video.overlay : 40,
+        blur: state.video.blur !== undefined ? state.video.blur : 0,
+        muted: state.video.muted !== undefined ? state.video.muted : true
+      }
+    };
+
+    // 2. Safely update memory and local storage
+    currentUser.username = targetUsername;
+    currentUser.name = bioPayload.name;
+    currentUser.avatar = bioPayload.avatar;
+    currentUser.bioData = bioPayload;
+    try {
+      localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
+    } catch (lsErr) {
+      console.warn('LocalStorage save warning:', lsErr);
+    }
+
+    // 3. Safely update local database
+    try {
+      const db = getUsersDatabase();
+      if (currentUser.email && db[currentUser.email.toLowerCase()]) {
+        db[currentUser.email.toLowerCase()].username = targetUsername;
+        db[currentUser.email.toLowerCase()].name = bioPayload.name;
+        db[currentUser.email.toLowerCase()].avatar = bioPayload.avatar;
+        db[currentUser.email.toLowerCase()].bioData = bioPayload;
+        saveUsersDatabase(db);
+      }
+    } catch (dbErr) {
+      console.warn('Local users DB save warning:', dbErr);
+    }
+
+    // 4. Send to server with 6s timeout controller
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    let res;
+    try {
+      res = await fetch('/api/save-bio', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('biolink_token') || ''}`
+        },
+        body: JSON.stringify(bioPayload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      console.warn('Network save timeout or error, local copy saved:', fetchErr);
+      // Even if network timed out, local changes are intact!
+      updatePublicBioView(bioPayload, true);
+      updatePhonePreview();
+      if (btnElem) {
+        btnElem.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span style="color: #34d399; font-weight: 700;">Đã lưu cục bộ!</span>
+        `;
+        setTimeout(() => {
+          btnElem.innerHTML = originalBtnHtml;
+          btnElem.disabled = false;
+        }, 2000);
+      }
+      if (showSuccessFeedback) {
+        showToast('Đã lưu thay đổi vào trình duyệt của bạn (Máy chủ phản hồi chậm).');
+      }
+      return true;
+    }
+
     const data = await res.json();
 
     if (!data.success) {
@@ -951,8 +989,8 @@ async function saveCurrentBioToUserAsync(showSuccessFeedback = true, btnElem = n
 
     if (btnElem) {
       btnElem.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        <span>Đã lưu!</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span style="color: #34d399; font-weight: 700;">Đã lưu thành công!</span>
       `;
       setTimeout(() => {
         btnElem.innerHTML = originalBtnHtml;
@@ -971,7 +1009,7 @@ async function saveCurrentBioToUserAsync(showSuccessFeedback = true, btnElem = n
       btnElem.disabled = false;
     }
     if (showSuccessFeedback) {
-      showToast('⚠️ Không thể kết nối máy chủ để lưu, dữ liệu đã lưu tạm vào máy của bạn.');
+      showToast('⚠️ Không thể lưu lên máy chủ lúc này, đã lưu tạm vào bộ nhớ máy bạn.');
     }
     return false;
   }
@@ -2629,20 +2667,56 @@ function loadCreatorProfile(creatorKey) {
    AVATAR UPLOAD HANDLER
    ========================================================================== */
 
-function handleAvatarUpload(e) {
+function compressImage(file, maxWidth = 400, maxHeight = 400, quality = 0.85) {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) {
+      resolve('');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(e.target.result);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleAvatarUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    state.avatar = event.target.result;
-    dom.avatarPreviewImg.src = state.avatar;
-    updatePhonePreview();
-    updatePublicBioView();
-    saveCurrentBioToUser();
-    showToast('Đã tải ảnh đại diện thành công!');
-  };
-  reader.readAsDataURL(file);
+  showToast('Đang tối ưu ảnh đại diện...');
+  const compressedAvatar = await compressImage(file);
+  state.avatar = compressedAvatar || state.avatar || 'assets/avatar_abg.jpg';
+  dom.avatarPreviewImg.src = state.avatar;
+  updatePhonePreview();
+  updatePublicBioView();
+  saveCurrentBioToUser();
+  showToast('Đã tải ảnh đại diện thành công!');
 }
 
 /* ==========================================================================
