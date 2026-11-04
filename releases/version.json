@@ -1,0 +1,17 @@
+{
+  "version": "1.0.1",
+  "versionCode": 2,
+  "minSupportVersion": "1.0.0",
+  "apkUrl": "/releases/bio_app_v1.0.1.apk",
+  "apkSize": "24.5 MB",
+  "releaseDate": "2026-11-01",
+  "forceUpdate": false,
+  "title": "Có Bản Nâng Cấp Mới (v1.0.1)!",
+  "changelog": [
+    "🚀 Bổ sung cơ chế tự động kiểm tra và cập nhật APK (In-App Auto Update)",
+    "🎨 Tối ưu hiệu ứng hạt mưa rơi và hoa tuyết 60 FPS mượt mà",
+    "🎥 Cải thiện trình phát video nền lặp vô tận từ bộ nhớ máy",
+    "⚡ Tối ưu thời gian mở app và giảm tiêu thụ pin",
+    "🛡️ Khắc phục các lỗi hiển thị trên màn hình tràn viền"
+  ]
+}

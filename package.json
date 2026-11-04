@@ -1,0 +1,21 @@
+{
+  "name": "bio",
+  "version": "1.0.0",
+  "description": "Bio Link với tùy chọn video nền từ máy tính",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "dev:3001": "node -e \"process.env.PORT=3001; require('./server.js')\"",
+    "start": "node server.js"
+  },
+  "keywords": [
+    "biolink",
+    "video-background",
+    "profile"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mongodb": "^7.8.0"
+  }
+}

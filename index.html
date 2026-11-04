@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bio • Không gian cá nhân điện ảnh & Video nền số</title>
+  <meta name="description" content="bio - Nền tảng giới thiệu bản thân đột phá hoàn toàn mới lạ. Tự do tải video từ máy tính làm hình nền động, hiệu ứng âm thanh & hạt khí quyển, mã QR thông minh.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background Layer for Themes & Custom Video -->
+  <div id="ambientBackground" class="ambient-background">
+    <video id="bgVideo" class="bg-video-element" autoplay loop muted playsinline></video>
+    <div id="bgImageLayer" class="bg-image-layer"></div>
+    <canvas id="ambientEffectCanvas" class="ambient-canvas"></canvas>
+    <div id="bgOverlay" class="bg-dark-overlay"></div>
+  </div>
+
+  <!-- Global App Header -->
+  <header id="mainHeader" class="app-header">
+    <div class="header-left">
+      <!-- Unique Logo: bio -->
+      <a href="#" class="bio-brand-logo" id="brandLogoHome" title="bio - Trang chủ">
+        <span class="bio-logo-text">bio</span>
+        <span class="bio-logo-sparkle"></span>
+      </a>
+      <div class="status-indicator">
+        <span class="pulse-dot"></span>
+        <span class="status-label">v2.0 Không gian số</span>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <nav class="view-switcher" role="tablist">
+        <button id="navHomeBtn" class="nav-tab active" data-view="home">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Trang chủ
+        </button>
+        <button id="navWizardBtn" class="nav-tab" data-view="wizard">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Trình tạo Bio
+        </button>
+        <button id="navSplitBtn" class="nav-tab" data-view="split">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/></svg>
+          Studio xem trực tiếp
+        </button>
+        <button id="navFullBioBtn" class="nav-tab" data-view="public">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          Trang Bio hoàn chỉnh
+        </button>
+      </nav>
+    </div>
+
+    <div class="header-right">
+      <button id="quickUploadVideoBtn" class="btn-quick-video" title="Tải video nền từ máy">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/><line x1="8" y1="9" x2="8" y2="15"/><line x1="5" y1="12" x2="11" y2="12"/></svg>
+        <span>+ Đổi video nền</span>
+      </button>
+
+      <!-- Auth Action Buttons (When Logged Out) -->
+      <div id="authButtonsGroup" class="auth-buttons-group hidden-auth">
+        <button type="button" class="btn-nav-auth login" id="btnOpenLogin">Đăng nhập</button>
+        <button type="button" class="btn-nav-auth register" id="btnOpenRegister">Đăng ký</button>
+      </div>
+
+      <!-- User Profile Menu (When Logged In) -->
+      <div class="user-profile-menu-container" id="userProfileContainer">
+        <div class="user-profile-menu" id="userProfileBtn">
+          <span class="user-email-text" id="headerUserEmail">teome5575@gmail.com</span>
+          <div class="user-avatar-mini" id="headerAvatarMini">
+            <img id="headerAvatarImg" src="assets/avatar_abg.jpg" alt="Avatar" class="avatar-mini-img">
+          </div>
+          <svg class="chevron-down" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+
+        <!-- User Dropdown Menu -->
+        <div id="userProfileDropdown" class="profile-dropdown-menu hidden-dropdown">
+          <div class="dropdown-user-header">
+            <span class="dropdown-name" id="dropdownUserName">Abg</span>
+            <span class="dropdown-email" id="dropdownUserEmail">teome5575@gmail.com</span>
+            <span class="dropdown-slug-badge" id="dropdownUserSlug">biolink.me/abg</span>
+          </div>
+          <div class="dropdown-divider"></div>
+          <a href="#" class="dropdown-item" id="dropdownMyBioLink">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Xem Bio công khai của tôi
+          </a>
+          <button type="button" class="dropdown-item" id="dropdownCopyLinkBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Sao chép liên kết cá nhân
+          </button>
+          <button type="button" class="dropdown-item" id="dropdownSwitchAccountBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            Chuyển / Thêm tài khoản
+          </button>
+          <div class="dropdown-divider"></div>
+          <button type="button" class="dropdown-item danger" id="dropdownLogoutBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Đăng xuất
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN APP WRAPPER -->
+  <main id="appContainer" class="app-container">
+
+    <!-- ============================================ -->
+    <!-- VIEW 0: TRANG CHỦ HOÀN TOÀN MỚI LẠ (BIO)     -->
+    <!-- ============================================ -->
+    <section id="homeSection" class="home-section active-view">
+      
+      <!-- HERO SECTION: THE LIVING SPATIAL DIMENSION -->
+      <div class="home-hero-container">
+        
+        <div class="hero-badge-pill">
+          <span class="badge-dot"></span>
+          <span class="badge-text">Thế hệ Bio Link đột phá mới nhất • Video-First Dimension</span>
+        </div>
+
+        <h1 class="hero-headline">
+          Đưa video vào linh hồn Bio của bạn.<br>
+          <span class="gradient-text-glow">Không chỉ là liên kết. Đây là chiều không gian số.</span>
+        </h1>
+
+        <p class="hero-description">
+          Khác biệt hoàn toàn với những trang bio tĩnh lặng, nhàm chán như Bio.link hay Linktree cũ. 
+          <strong>bio</strong> biến trang cá nhân của bạn thành một tác phẩm nghệ thuật điện ảnh sống động: 
+          chọn video tùy thích từ máy tính làm hình nền 4K, hòa quyện âm thanh nền cảm xúc và hiệu ứng kính mờ quang học.
+        </p>
+
+        <!-- Interactive Handle Claimer -->
+        <div class="hero-claim-wrapper">
+          <div class="claim-input-box">
+            <span class="claim-prefix">bio.me/@</span>
+            <input type="text" id="homeClaimInput" class="claim-field" placeholder="ten_cua_ban" value="abg" autocomplete="off" spellcheck="false">
+          </div>
+          <button type="button" class="btn-gradient-submit btn-hero-claim" id="btnClaimHero">
+            <span>Bắt đầu tạo Bio</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </div>
+
+        <div class="hero-trust-chips">
+          <span class="trust-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> 100% Miễn phí trọn đời</span>
+          <span class="trust-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Tải video từ máy tính không giới hạn</span>
+          <span class="trust-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Quét mã QR mở thẳng trên điện thoại</span>
+        </div>
+
+        <!-- 3D INTERACTIVE SPATIAL HOLO-CARD SHOWCASE -->
+        <div class="hero-showcase-stage">
+          <div class="hero-holo-card" id="heroHoloCard">
+            
+            <!-- Video & Canvas Backdrop of Holo-Card -->
+            <div class="holo-card-media-layer">
+              <video id="holoCardVideo" class="holo-bg-video" autoplay loop muted playsinline></video>
+              <div id="holoCardImage" class="holo-bg-image" style="background-image: url('assets/rainy_city_night.jpg');"></div>
+              <canvas id="holoCardCanvas" class="holo-canvas"></canvas>
+              <div class="holo-card-overlay"></div>
+            </div>
+
+            <!-- Profile Content Inside Holo-Card -->
+            <div class="holo-card-content">
+              <div class="holo-profile-header">
+                <div class="holo-avatar-orbit">
+                  <img src="assets/avatar_abg.jpg" alt="Avatar Abg" class="holo-avatar-img">
+                  <span class="holo-status-dot" title="Đang trực tiếp"></span>
+                </div>
+                <h3 class="holo-name">Abg <span class="verified-icon">✓</span></h3>
+                <p class="holo-tagline">Visual Artist & Music Producer ✨</p>
+                
+                <!-- Audio Frequency Waves -->
+                <div class="holo-audio-wave">
+                  <span class="bar bar-1"></span>
+                  <span class="bar bar-2"></span>
+                  <span class="bar bar-3"></span>
+                  <span class="bar bar-4"></span>
+                  <span class="bar bar-5"></span>
+                  <span class="audio-track-name">Đang phát: Lofi Midnight Rain</span>
+                </div>
+              </div>
+
+              <!-- Interactive Glass Link Pills -->
+              <div class="holo-links-stack">
+                <a href="#" class="holo-link-pill" onclick="event.preventDefault();">
+                  <span class="link-icon">🎵</span>
+                  <span class="link-label">Nghe Album Mới Nhất</span>
+                  <span class="link-arrow">↗</span>
+                </a>
+                <a href="#" class="holo-link-pill" onclick="event.preventDefault();">
+                  <span class="link-icon">🎬</span>
+                  <span class="link-label">Kênh YouTube 4K Vlog</span>
+                  <span class="link-arrow">↗</span>
+                </a>
+                <a href="#" class="holo-link-pill" onclick="event.preventDefault();">
+                  <span class="link-icon">☕</span>
+                  <span class="link-label">Mời tôi một ly cà phê</span>
+                  <span class="link-arrow">↗</span>
+                </a>
+              </div>
+
+              <!-- Watermark Logo bio -->
+              <div class="holo-watermark">
+                <span class="bio-watermark-text">bio</span>
+              </div>
+            </div>
+
+            <!-- Reflection Glare Overlay -->
+            <div class="holo-glare-effect" id="holoGlare"></div>
+          </div>
+
+          <!-- Interactive Mood Switcher Buttons -->
+          <div class="holo-mood-palette">
+            <span class="palette-title">Đổi tâm trạng không gian:</span>
+            <div class="palette-buttons-row">
+              <button type="button" class="mood-pill-btn active" data-mood="rainy">
+                🌧️ Đêm Mưa Chill
+              </button>
+              <button type="button" class="mood-pill-btn" data-mood="galaxy">
+                🌌 Dải Ngân Hà
+              </button>
+              <button type="button" class="mood-pill-btn" data-mood="cyber">
+                ⚡ Cyberpunk Tokyo
+              </button>
+              <button type="button" class="mood-pill-btn" data-mood="winter">
+                ❄️ Mùa Đông Trắng
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div> <!-- end hero container -->
+
+      <!-- SECTION: THE RADICAL CONTRAST (OLD LINKTREE VS BIO) -->
+      <section class="home-contrast-section">
+        <div class="contrast-header-block">
+          <span class="section-tag">Cuộc Cách Mạng Trải Nghiệm</span>
+          <h2 class="section-title">Tại sao bio vượt trội hoàn toàn so với Bio.link cũ?</h2>
+          <p class="section-desc">Chúng tôi không lặp lại quá khứ. bio tái định nghĩa cách thế giới nhìn nhận về trang giới thiệu bản thân.</p>
+        </div>
+
+        <div class="contrast-grid-table">
+          <!-- Cột Cũ: Bio.link / Linktree cổ điển -->
+          <div class="contrast-card legacy">
+            <div class="card-status-pill red">Lối mòn cũ (Bio.link truyền thống)</div>
+            <ul class="contrast-points-list">
+              <li>
+                <span class="point-icon red">✕</span>
+                <div>
+                  <strong>Nền tĩnh đơn sắc khô cứng</strong>
+                  <p>Màu phẳng nhàm chán hoặc ảnh tĩnh chụp sẵn, thiếu hoàn toàn sức sống và cá tính riêng.</p>
+                </div>
+              </li>
+              <li>
+                <span class="point-icon red">✕</span>
+                <div>
+                  <strong>Không thể dùng video từ máy tính</strong>
+                  <p>Bắt buộc phải nhúng link YouTube rườm rà hoặc trả phí đắt đỏ mà vẫn giật lag.</p>
+                </div>
+              </li>
+              <li>
+                <span class="point-icon red">✕</span>
+                <div>
+                  <strong>Trải nghiệm khô khan, thiếu cảm xúc</strong>
+                  <p>Không có âm thanh nền, không hiệu ứng khí quyển, người xem lướt qua trong 3 giây rồi thoát.</p>
+                </div>
+              </li>
+              <li>
+                <span class="point-icon red">✕</span>
+                <div>
+                  <strong>Mã QR hạn chế, khó chia sẻ</strong>
+                  <p>Mã QR đen trắng tĩnh, không nhận diện được thiết bị cục bộ cùng mạng Wi-Fi.</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Cột Mới: bio Độc Bản -->
+          <div class="contrast-card future">
+            <div class="card-status-pill green">✨ Chuẩn mực mới: bio Spatial</div>
+            <ul class="contrast-points-list">
+              <li>
+                <span class="point-icon green">✓</span>
+                <div>
+                  <strong>Tự do tải Video nền từ máy tính (.mp4, .webm)</strong>
+                  <p>Thả ga bỏ video bạn tự quay, video lofi, animation tùy thích làm hình nền lặp vô tận.</p>
+                </div>
+              </li>
+              <li>
+                <span class="point-icon green">✓</span>
+                <div>
+                  <strong>Tích hợp âm thanh & Hạt khí quyển Canvas 60 FPS</strong>
+                  <p>Hiệu ứng hạt mưa lăn trên kính và tuyết rơi vật lý GPU, biến bio thành không gian nghệ thuật.</p>
+                </div>
+              </li>
+              <li>
+                <span class="point-icon green">✓</span>
+                <div>
+                  <strong>Công nghệ Lưu trữ Cục bộ Zero-Lag (IndexedDB)</strong>
+                  <p>Video tải từ máy được lưu ngay trong trình duyệt, mở siêu nhanh, bảo mật tuyệt đối.</p>
+                </div>
+              </li>
+              <li>
+                <span class="point-icon green">✓</span>
+                <div>
+                  <strong>Mã QR đa chiều thông minh</strong>
+                  <p>Quét camera điện thoại iPhone/Android là mở thẳng trang Bio cá nhân ngay tức khắc.</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION: SPATIAL BENTO GRID -->
+      <section class="home-bento-section">
+        <div class="contrast-header-block">
+          <span class="section-tag">Công Nghệ Độc Bản</span>
+          <h2 class="section-title">Khám phá sức mạnh không gian của bio</h2>
+          <p class="section-desc">Mọi chi tiết được trau chuốt tỉ mỉ để tạo ấn tượng choáng ngợp ngay từ cái nhìn đầu tiên.</p>
+        </div>
+
+        <div class="bento-grid-container">
+          
+          <!-- Bento 1: Video Engine từ máy (Card lớn) -->
+          <div class="bento-card bento-span-2 bento-video-engine">
+            <div class="bento-card-header">
+              <span class="bento-icon-tag">🎬</span>
+              <h3>Bộ máy Video Nền Cục Bộ Siêu Tốc</h3>
+            </div>
+            <p>Chọn bất kỳ video nào từ máy tính của bạn. Dễ dàng điều chỉnh thanh trượt độ tối lớp phủ (Dark Overlay) và độ mờ điện ảnh (Cinematic Blur) để chữ luôn hiển thị sắc nét.</p>
+            <div class="bento-interactive-sliders-preview">
+              <div class="slider-row-mock">
+                <span>Lớp phủ tương phản</span>
+                <div class="mock-bar-fill" style="width: 45%;"></div>
+              </div>
+              <div class="slider-row-mock">
+                <span>Độ mờ kính (Blur)</span>
+                <div class="mock-bar-fill" style="width: 25%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bento 2: Atmospheric Canvas -->
+          <div class="bento-card bento-atmosphere">
+            <div class="bento-card-header">
+              <span class="bento-icon-tag">🌧️</span>
+              <h3>Hạt Khí Quyển Thời Gian Thực</h3>
+            </div>
+            <p>Mưa rơi động lăn trên kính, tuyết rơi mùa đông lãng mạn được tính toán chuyển động vật lý trực tiếp trên GPU.</p>
+          </div>
+
+          <!-- Bento 3: Smart Wi-Fi QR -->
+          <div class="bento-card bento-qr-instant">
+            <div class="bento-card-header">
+              <span class="bento-icon-tag">📱</span>
+              <h3>Mã QR Quét Mở Thẳng Trang</h3>
+            </div>
+            <p>Hệ thống tự động phát hiện mạng Wi-Fi và tạo mã QR scannable. Khách quét camera là chiêm ngưỡng toàn màn hình ngay.</p>
+          </div>
+
+          <!-- Bento 4: 1-Tap Google Auth -->
+          <div class="bento-card bento-span-2 bento-google-auth">
+            <div class="bento-card-header">
+              <span class="bento-icon-tag">🔐</span>
+              <h3>Đăng Nhập 1-Chạm Bằng Google & Đa Hồ Sơ</h3>
+            </div>
+            <p>Tạo tài khoản chỉ trong 3 giây. Cho phép quản trị nhiều tên miền con và trang Bio riêng biệt cho công việc, nghệ thuật và mạng xã hội.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SECTION: CREATORS SHOWCASE GALLERY -->
+      <section class="home-gallery-section">
+        <div class="contrast-header-block">
+          <span class="section-tag">Cảm Hứng Sáng Tạo</span>
+          <h2 class="section-title">Những nhà sáng tạo đang định hình phong cách cùng bio</h2>
+          <p class="section-desc">Xem trước các phong cách bio độc bản và chọn mẫu phù hợp với cá tính của bạn.</p>
+        </div>
+
+        <div class="creators-showcase-grid">
+          
+          <!-- Creator 1: Abg -->
+          <div class="creator-card">
+            <div class="creator-card-bg" style="background-image: url('assets/rainy_city_night.jpg');"></div>
+            <div class="creator-card-body">
+              <img src="assets/avatar_abg.jpg" alt="Abg" class="creator-avatar">
+              <h4>Abg</h4>
+              <span class="creator-role">Digital Artist & Tarot Creator</span>
+              <p class="creator-quote">"Nền video mưa đêm và tông màu tối bí ẩn giúp trang của tôi thu hút gấp 4 lần khách đặt tranh!"</p>
+              <button type="button" class="btn-preview-creator" data-creator="abg">Khám phá Bio này →</button>
+            </div>
+          </div>
+
+          <!-- Creator 2: Kira -->
+          <div class="creator-card">
+            <div class="creator-card-bg" style="background: linear-gradient(135deg, #090979, #00d4ff);"></div>
+            <div class="creator-card-body">
+              <div class="creator-avatar-placeholder cyber">K</div>
+              <h4>Kira Neon</h4>
+              <span class="creator-role">Cyberpunk Producer & DJ</span>
+              <p class="creator-quote">"Âm thanh visualizer và video neon highway phản chiếu đúng chất nhạc điện tử của tôi."</p>
+              <button type="button" class="btn-preview-creator" data-creator="kira">Khám phá Bio này →</button>
+            </div>
+          </div>
+
+          <!-- Creator 3: Elena -->
+          <div class="creator-card">
+            <div class="creator-card-bg" style="background-image: url('assets/theme_christmas.jpg');"></div>
+            <div class="creator-card-body">
+              <div class="creator-avatar-placeholder cozy">E</div>
+              <h4>Elena Vu</h4>
+              <span class="creator-role">Coffee Roaster & Lifestyle Vlogger</span>
+              <p class="creator-quote">"Hiệu ứng kính mờ ấm áp giúp tôi giới thiệu các workshop cà phê đầy nghệ thuật."</p>
+              <button type="button" class="btn-preview-creator" data-creator="elena">Khám phá Bio này →</button>
+            </div>
+          </div>
+
+          <!-- Creator 4: Zen -->
+          <div class="creator-card">
+            <div class="creator-card-bg" style="background: radial-gradient(circle, #4c1d95, #09031c);"></div>
+            <div class="creator-card-body">
+              <div class="creator-avatar-placeholder galaxy">Z</div>
+              <h4>Zenith</h4>
+              <span class="creator-role">3D Animator & Indie Game Dev</span>
+              <p class="creator-quote">"Không gian ngân hà sâu thẳm biến bio thành một cổng du hành số thực thụ!"</p>
+              <button type="button" class="btn-preview-creator" data-creator="zen">Khám phá Bio này →</button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SECTION: MEGA CTA BANNER -->
+      <section class="home-mega-cta">
+        <div class="mega-cta-content">
+          <span class="mega-cta-badge">Sẵn Sàng Bứt Phá?</span>
+          <h2 class="mega-cta-title">Tạo trang bio độc nhất vô nhị của riêng bạn ngay bây giờ.</h2>
+          <p class="mega-cta-desc">Chỉ mất 60 giây để bắt đầu. Hoàn toàn miễn phí, không cần thẻ tín dụng, chọn ngay video bạn yêu thích.</p>
+          <div class="mega-cta-actions">
+            <button type="button" class="btn-gradient-submit btn-mega-start" id="btnMegaCtaStart">
+              <span>Bắt Đầu Tạo Bio Ngay Bây Giờ</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- HOME FOOTER -->
+      <footer class="home-footer">
+        <div class="footer-top-row">
+          <div class="footer-brand">
+            <div class="bio-brand-logo">
+              <span class="bio-logo-text">bio</span>
+              <span class="bio-logo-sparkle"></span>
+            </div>
+            <p class="footer-slogan">Nền tảng Bio Link thế hệ mới với video nền tùy chọn từ máy tính và âm thanh cảm xúc.</p>
+          </div>
+          <div class="footer-links-group">
+            <div class="footer-col">
+              <h5>Sản phẩm</h5>
+              <a href="#" id="footerLinkStudio">Trình tạo Bio (Studio)</a>
+              <a href="#" id="footerLinkThemes">Chủ đề Video</a>
+              <a href="#" id="footerLinkQr">Mã QR thông minh</a>
+            </div>
+            <div class="footer-col">
+              <h5>Tài khoản</h5>
+              <a href="#" id="footerLinkLogin">Đăng nhập</a>
+              <a href="#" id="footerLinkRegister">Đăng ký mới</a>
+              <a href="#" id="footerLinkGoogle">Google OAuth</a>
+            </div>
+          </div>
+        </div>
+        <div class="footer-bottom-row">
+          <span>© 2026 <strong>bio</strong>. Mọi quyền được bảo lưu.</span>
+          <span class="footer-status-tag">● Tất cả hệ thống đang hoạt động tối ưu</span>
+        </div>
+      </footer>
+
+    </section>
+
+    <!-- ============================================ -->
+    <!-- VIEW 1: STEP-BY-STEP ONBOARDING / WIZARD     -->
+    <!-- ============================================ -->
+    <section id="wizardSection" class="wizard-section hidden-view">
+      <div class="wizard-card-wrapper">
+        
+        <!-- Step Navigation Bar -->
+        <div class="wizard-top-bar">
+          <button id="wizardBackBtn" class="btn-icon-back" title="Quay lại">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          </button>
+          
+          <div class="progress-track-container">
+            <div id="wizardProgressBar" class="progress-bar-fill" style="width: 14.28%;"></div>
+          </div>
+
+          <div class="step-indicator-text" id="stepCounterText">Bước 1/7</div>
+        </div>
+
+        <!-- Wizard Slides Container -->
+        <div class="wizard-slides-container">
+
+          <!-- BƯỚC 1: Nguồn biết đến Bio Link -->
+          <div class="wizard-slide" data-step="1">
+            <h1 class="slide-title">Bạn biết đến Bio Link bằng cách nào?</h1>
+            <p class="slide-subtitle">Hãy cho chúng tôi biết cách bạn tìm thấy Bio Link để nhận được trải nghiệm tốt nhất.</p>
+            <div class="option-list-vertical" id="referralOptionList">
+              <button type="button" class="list-pill-btn" data-value="google">Google</button>
+              <button type="button" class="list-pill-btn" data-value="instagram">Instagram</button>
+              <button type="button" class="list-pill-btn" data-value="tiktok">TikTok</button>
+              <button type="button" class="list-pill-btn" data-value="facebook">Facebook</button>
+              <button type="button" class="list-pill-btn" data-value="youtube">YouTube</button>
+              <button type="button" class="list-pill-btn" data-value="twitter">Twitter/X</button>
+              <button type="button" class="list-pill-btn" data-value="friends">Bạn bè/gia đình</button>
+              <button type="button" class="list-pill-btn" data-value="other">Khác</button>
+            </div>
+          </div>
+
+          <!-- BƯỚC 2: Nền tảng sử dụng -->
+          <div class="wizard-slide" data-step="2">
+            <h1 class="slide-title">Bạn đang sử dụng những nền tảng nào?</h1>
+            <p class="slide-subtitle">Chọn các mạng xã hội bạn muốn liên kết trong trang bio cá nhân.</p>
+            <div class="platform-multi-select-list" id="platformSelectList">
+              <!-- Instagram -->
+              <button type="button" class="platform-item-btn" data-platform="instagram">
+                <div class="platform-left">
+                  <span class="platform-icon icon-instagram">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                  </span>
+                  <span class="platform-name">Instagram</span>
+                </div>
+                <div class="checkbox-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+              </button>
+
+              <!-- YouTube -->
+              <button type="button" class="platform-item-btn selected" data-platform="youtube">
+                <div class="platform-left">
+                  <span class="platform-icon icon-youtube">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                  </span>
+                  <span class="platform-name">YouTube</span>
+                </div>
+                <div class="checkbox-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+              </button>
+
+              <!-- TikTok -->
+              <button type="button" class="platform-item-btn" data-platform="tiktok">
+                <div class="platform-left">
+                  <span class="platform-icon icon-tiktok">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 3 15.68 6.34 6.34 0 0 0 9.34 22a6.33 6.33 0 0 0 6.33-6.32V8.6a8.28 8.28 0 0 0 4.84 1.55V6.69h-.92z"/></svg>
+                  </span>
+                  <span class="platform-name">TikTok</span>
+                </div>
+                <div class="checkbox-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+              </button>
+
+              <!-- Facebook -->
+              <button type="button" class="platform-item-btn selected" data-platform="facebook">
+                <div class="platform-left">
+                  <span class="platform-icon icon-facebook">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                  </span>
+                  <span class="platform-name">Facebook</span>
+                </div>
+                <div class="checkbox-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+              </button>
+
+              <!-- Twitter / X -->
+              <button type="button" class="platform-item-btn" data-platform="twitter">
+                <div class="platform-left">
+                  <span class="platform-icon icon-twitter">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  </span>
+                  <span class="platform-name">Twitter/X</span>
+                </div>
+                <div class="checkbox-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+              </button>
+
+              <!-- Mời tôi một ly cà phê -->
+              <button type="button" class="platform-item-btn" data-platform="coffee">
+                <div class="platform-left">
+                  <span class="platform-icon icon-coffee">☕</span>
+                  <span class="platform-name">Mời tôi một ly cà phê</span>
+                </div>
+                <div class="checkbox-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+              </button>
+
+              <!-- Snapchat -->
+              <button type="button" class="platform-item-btn" data-platform="snapchat">
+                <div class="platform-left">
+                  <span class="platform-icon icon-snapchat">👻</span>
+                  <span class="platform-name">Snapchat</span>
+                </div>
+                <div class="checkbox-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+              </button>
+
+              <!-- Tôi có một trang web -->
+              <button type="button" class="platform-item-btn" data-platform="website">
+                <div class="platform-left">
+                  <span class="platform-icon icon-website">🌐</span>
+                  <span class="platform-name">Tôi có một trang web</span>
+                </div>
+                <div class="checkbox-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+              </button>
+            </div>
+
+            <div class="wizard-bottom-actions">
+              <button type="button" class="btn-gradient-submit" id="step2ContinueBtn">Tiếp tục</button>
+            </div>
+          </div>
+
+          <!-- BƯỚC 3: Tải ảnh đại diện -->
+          <div class="wizard-slide" data-step="3">
+            <h1 class="slide-title">Tải ảnh đại diện của bạn lên</h1>
+            <p class="slide-subtitle">Chọn ảnh đại diện thể hiện cá tính của bạn hoặc sử dụng ảnh mẫu có sẵn.</p>
+
+            <div class="avatar-upload-center-zone">
+              <input type="file" id="avatarFileInput" accept="image/*" class="hidden-file-input">
+              <div class="avatar-dashed-circle" id="avatarDropZone" title="Nhấp để chọn ảnh từ máy">
+                <img id="avatarPreviewImg" class="avatar-preview-img" src="assets/avatar_abg.jpg" alt="Avatar Preview">
+                <div class="avatar-upload-overlay">
+                  <svg class="camera-icon" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <span class="upload-hint">Tải ảnh từ máy</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="preset-avatar-chips">
+              <span class="chip-title">Ảnh gợi ý:</span>
+              <button type="button" class="chip-btn active" data-avatar="assets/avatar_abg.jpg">Anime Tarot (Abg)</button>
+              <button type="button" class="chip-btn" data-avatar="preset-cyber">Cyber Neon</button>
+              <button type="button" class="chip-btn" data-avatar="preset-minimal">3D Minimal</button>
+            </div>
+
+            <div class="wizard-bottom-actions">
+              <button type="button" class="btn-gradient-submit" id="step3ContinueBtn">Tiếp tục</button>
+            </div>
+          </div>
+
+          <!-- BƯỚC 4: Thêm thông tin hồ sơ -->
+          <div class="wizard-slide" data-step="4">
+            <h1 class="slide-title">Thêm thông tin hồ sơ của bạn</h1>
+            <p class="slide-subtitle">Tên hiển thị và vài dòng tiểu sử ngắn gọn thu hút người theo dõi.</p>
+
+            <div class="form-group-floating">
+              <label for="userNameInput" class="input-label">Tên của bạn</label>
+              <input type="text" id="userNameInput" class="input-modern" value="Abg" placeholder="Nhập tên của bạn...">
+            </div>
+
+            <div class="form-group-floating">
+              <div class="label-with-counter">
+                <label for="userBioInput" class="input-label">Sinh học (Tiểu sử)</label>
+                <span class="char-counter" id="bioCharCounter">18/255</span>
+              </div>
+              <textarea id="userBioInput" class="textarea-modern" rows="4" maxlength="255" placeholder="Viết vài dòng giới thiệu về bạn, nghề nghiệp, sở thích...">Digital Creator & Designer ✨ Chào mừng bạn đến với góc nhỏ của mình!</textarea>
+            </div>
+
+            <div class="wizard-bottom-actions">
+              <button type="button" class="btn-gradient-submit" id="step4ContinueBtn">Tiếp tục</button>
+            </div>
+          </div>
+
+          <!-- BƯỚC 5: Liên kết & Mạng xã hội -->
+          <div class="wizard-slide" data-step="5">
+            <h1 class="slide-title">Bắt đầu bằng một liên kết</h1>
+            <p class="slide-subtitle">Hãy thêm bất cứ điều gì bạn muốn người theo dõi mình thấy.</p>
+
+            <!-- Custom Links Section -->
+            <div class="custom-links-card">
+              <div class="custom-link-inputs" id="customLinksList">
+                <div class="custom-link-row">
+                  <div class="row-field">
+                    <label class="input-sublabel">Tên liên kết</label>
+                    <input type="text" class="input-modern link-title-input" value="Fb" placeholder="Ví dụ: Trang Facebook, Portfolio...">
+                  </div>
+                  <div class="row-field">
+                    <label class="input-sublabel">URL</label>
+                    <input type="text" class="input-modern link-url-input" value="https://facebook.com/abg" placeholder="https://...">
+                  </div>
+                </div>
+              </div>
+
+              <button type="button" id="addMoreLinkBtn" class="btn-add-more">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                +Thêm một cái nữa
+              </button>
+            </div>
+
+            <!-- Social Media Handles Section -->
+            <div class="social-handles-section">
+              <h3 class="section-badge-title">Mạng xã hội</h3>
+              <div class="social-input-list" id="socialInputsContainer">
+                <!-- Dynamically populated or defaults -->
+                <div class="social-input-row">
+                  <span class="social-input-icon icon-instagram">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                  </span>
+                  <input type="text" id="socialInstagramInput" class="input-modern social-url-field" placeholder="URL Instagram hoặc @username" value="https://instagram.com/abg">
+                </div>
+
+                <div class="social-input-row">
+                  <span class="social-input-icon icon-tiktok">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 3 15.68 6.34 6.34 0 0 0 9.34 22a6.33 6.33 0 0 0 6.33-6.32V8.6a8.28 8.28 0 0 0 4.84 1.55V6.69h-.92z"/></svg>
+                  </span>
+                  <input type="text" id="socialTiktokInput" class="input-modern social-url-field" placeholder="URL TikTok hoặc @username" value="https://tiktok.com/@abg">
+                </div>
+
+                <div class="social-input-row">
+                  <span class="social-input-icon icon-youtube">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                  </span>
+                  <input type="text" id="socialYoutubeInput" class="input-modern social-url-field" placeholder="URL Kênh YouTube" value="https://youtube.com/@abg">
+                </div>
+              </div>
+            </div>
+
+            <div class="wizard-bottom-actions">
+              <button type="button" class="btn-gradient-submit" id="step5ContinueBtn">Tiếp tục</button>
+            </div>
+          </div>
+
+          <!-- BƯỚC 6: CHỌN CHỦ ĐỀ & TẢI VIDEO NỀN TỪ MÁY (Yêu cầu trọng tâm) -->
+          <div class="wizard-slide" data-step="6">
+            <div class="theme-header-block">
+              <h1 class="slide-title">Chọn chủ đề</h1>
+              <p class="slide-subtitle">Chọn giao diện có sẵn hoặc <strong>tải video từ máy tính của bạn</strong> để tạo nền Bio sống động độc nhất!</p>
+            </div>
+
+            <!-- NỔI BẬT: HỘP THOẠI TẢI VIDEO TỪ MÁY (CUSTOM VIDEO BACKGROUND) -->
+            <div class="custom-video-uploader-card" id="customVideoCard">
+              <input type="file" id="userVideoFileInput" accept="video/mp4,video/webm,video/ogg,video/quicktime" class="hidden-file-input">
+              <div class="uploader-header">
+                <div class="uploader-icon-badge">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/><line x1="8" y1="9" x2="8" y2="15"/><line x1="5" y1="12" x2="11" y2="12"/></svg>
+                </div>
+                <div class="uploader-titles">
+                  <div class="uploader-title-row">
+                    <h3>Tải video từ máy tính của bạn</h3>
+                    <span class="badge-feature">Tính năng mới</span>
+                  </div>
+                  <p>Hỗ trợ định dạng MP4, WebM, MOV. Tự động lặp lại làm video nền mượt mà.</p>
+                </div>
+              </div>
+
+              <!-- Upload Drag-Drop Box -->
+              <div class="video-drop-area" id="videoDropArea">
+                <div class="drop-empty-state" id="videoEmptyState">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <p class="drop-primary-text">Kéo thả file video vào đây hoặc <span class="highlight-link">Duyệt từ máy</span></p>
+                  <span class="drop-sub-text">Hỗ trợ các tệp video .mp4, .webm chất lượng cao</span>
+                </div>
+
+                <div class="drop-active-video-state hidden" id="videoLoadedState">
+                  <div class="video-preview-thumbnail" id="customVideoThumbBtn" title="Bấm để kích hoạt video này làm nền">
+                    <video id="miniVideoPreview" muted playsinline></video>
+                    <div class="play-indicator">▶</div>
+                  </div>
+                  <div class="video-loaded-meta">
+                    <span class="video-filename" id="loadedVideoName">my_custom_video.mp4</span>
+                    <span class="video-size-tag" id="loadedVideoSize">2.4 MB · Đang dùng làm nền</span>
+                    <div class="video-action-buttons">
+                      <button type="button" class="btn-use-custom-video" id="btnUseCustomVideo">✓ Dùng video này</button>
+                      <button type="button" class="btn-change-video" id="btnChangeVideo">Đổi video khác</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Video Adjustments / Sliders -->
+              <div class="video-controls-tuning" id="videoTuningPanel">
+                <div class="tuning-col">
+                  <div class="slider-header">
+                    <span>Độ tối lớp phủ (Tăng độ rõ chữ)</span>
+                    <span class="slider-value" id="overlayValueText">40%</span>
+                  </div>
+                  <input type="range" id="overlaySlider" min="0" max="85" value="40" class="tuning-slider">
+                </div>
+
+                <div class="tuning-col">
+                  <div class="slider-header">
+                    <span>Độ mờ điện ảnh (Blur)</span>
+                    <span class="slider-value" id="blurValueText">0px</span>
+                  </div>
+                  <input type="range" id="blurSlider" min="0" max="20" value="0" class="tuning-slider">
+                </div>
+
+                <div class="tuning-col toggle-col">
+                  <span>Âm thanh video nền</span>
+                  <button type="button" class="toggle-btn" id="videoMuteToggle">
+                    <span class="toggle-state">Tắt tiếng (Muted)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- GRID CÁC CHỦ ĐỀ SẴN CÓ THEO SCREENSHOT -->
+            <h3 class="theme-grid-title">Bộ sưu tập chủ đề</h3>
+            <div class="theme-grid-cards" id="themeGrid">
+              
+              <!-- Chủ đề: Đêm mưa (Trực tiếp) -->
+              <div class="theme-card active" data-theme-id="rainy_night">
+                <div class="theme-preview-card" style="background-image: url('assets/rainy_city_night.jpg');">
+                  <div class="card-pills-mockup">
+                    <div class="mockup-pill-bar"></div>
+                    <div class="mockup-pill-bar"></div>
+                    <div class="mockup-pill-bar"></div>
+                    <div class="mockup-pill-bar"></div>
+                  </div>
+                  <span class="live-badge">Trực tiếp</span>
+                </div>
+                <span class="theme-name-label">Đêm mưa · Trực tiếp</span>
+              </div>
+
+              <!-- Chủ đề: Cacbon -->
+              <div class="theme-card" data-theme-id="carbon">
+                <div class="theme-preview-card theme-bg-carbon">
+                  <div class="card-pills-mockup">
+                    <div class="mockup-pill-bar dark"></div>
+                    <div class="mockup-pill-bar dark"></div>
+                    <div class="mockup-pill-bar dark"></div>
+                    <div class="mockup-pill-bar dark"></div>
+                  </div>
+                </div>
+                <span class="theme-name-label">Cacbon</span>
+              </div>
+
+              <!-- Chủ đề: Giáng sinh -->
+              <div class="theme-card" data-theme-id="christmas">
+                <div class="theme-preview-card" style="background-image: url('assets/theme_christmas.jpg');">
+                  <div class="card-pills-mockup">
+                    <div class="mockup-pill-bar green"></div>
+                    <div class="mockup-pill-bar green"></div>
+                    <div class="mockup-pill-bar green"></div>
+                    <div class="mockup-pill-bar green"></div>
+                  </div>
+                </div>
+                <span class="theme-name-label">Giáng sinh</span>
+              </div>
+
+              <!-- Chủ đề: Kiêu hãnh (Pride Gradient) -->
+              <div class="theme-card" data-theme-id="pride">
+                <div class="theme-preview-card theme-bg-pride">
+                  <div class="card-pills-mockup">
+                    <div class="mockup-pill-bar dark"></div>
+                    <div class="mockup-pill-bar dark"></div>
+                    <div class="mockup-pill-bar dark"></div>
+                    <div class="mockup-pill-bar dark"></div>
+                  </div>
+                </div>
+                <span class="theme-name-label">Kiêu hãnh</span>
+              </div>
+
+              <!-- Chủ đề: Lỗi (Cyber Glitch) -->
+              <div class="theme-card" data-theme-id="cyber_glitch">
+                <div class="theme-preview-card theme-bg-cyber">
+                  <div class="card-pills-mockup">
+                    <div class="mockup-pill-bar wireframe"></div>
+                    <div class="mockup-pill-bar wireframe"></div>
+                    <div class="mockup-pill-bar wireframe"></div>
+                    <div class="mockup-pill-bar wireframe"></div>
+                  </div>
+                </div>
+                <span class="theme-name-label">Lỗi</span>
+              </div>
+
+              <!-- Chủ đề: Mùa đông · Trực tiếp -->
+              <div class="theme-card" data-theme-id="winter">
+                <div class="theme-preview-card" style="background-image: url('assets/theme_winter.jpg');">
+                  <div class="card-pills-mockup">
+                    <div class="mockup-pill-bar dark"></div>
+                    <div class="mockup-pill-bar dark"></div>
+                    <div class="mockup-pill-bar dark"></div>
+                    <div class="mockup-pill-bar dark"></div>
+                  </div>
+                  <span class="live-badge">Trực tiếp</span>
+                </div>
+                <span class="theme-name-label">Mùa đông · Trực tiếp</span>
+              </div>
+
+              <!-- Chủ đề: Glassy · Trực tiếp -->
+              <div class="theme-card" data-theme-id="glassy">
+                <div class="theme-preview-card theme-bg-glassy">
+                  <div class="card-pills-mockup">
+                    <div class="mockup-pill-bar frosted"></div>
+                    <div class="mockup-pill-bar frosted"></div>
+                    <div class="mockup-pill-bar frosted"></div>
+                    <div class="mockup-pill-bar frosted"></div>
+                  </div>
+                  <span class="live-badge">Trực tiếp</span>
+                </div>
+                <span class="theme-name-label">Glassy · Trực tiếp</span>
+              </div>
+
+              <!-- Chủ đề: Tắc kè hoa · Trực tiếp -->
+              <div class="theme-card" data-theme-id="chameleon">
+                <div class="theme-preview-card theme-bg-chameleon">
+                  <div class="card-pills-mockup">
+                    <div class="mockup-pill-bar green-glow"></div>
+                    <div class="mockup-pill-bar green-glow"></div>
+                    <div class="mockup-pill-bar green-glow"></div>
+                    <div class="mockup-pill-bar green-glow"></div>
+                  </div>
+                  <span class="live-badge">Trực tiếp</span>
+                </div>
+                <span class="theme-name-label">Tắc kè hoa · Trực tiếp</span>
+              </div>
+
+              <!-- Chủ đề: Những điều cơ bản -->
+              <div class="theme-card" data-theme-id="basic_dark">
+                <div class="theme-preview-card theme-bg-basic">
+                  <div class="card-pills-mockup">
+                    <div class="mockup-pill-bar solid"></div>
+                    <div class="mockup-pill-bar solid"></div>
+                    <div class="mockup-pill-bar solid"></div>
+                    <div class="mockup-pill-bar solid"></div>
+                  </div>
+                </div>
+                <span class="theme-name-label">Những điều cơ bản</span>
+              </div>
+
+              <!-- Video Mẫu Sẵn: Neon Cyber City (Video Loop) -->
+              <div class="theme-card" data-theme-id="video_neon_loop">
+                <div class="theme-preview-card theme-bg-video-preset">
+                  <div class="card-pills-mockup">
+                    <div class="mockup-pill-bar glass-neon"></div>
+                    <div class="mockup-pill-bar glass-neon"></div>
+                    <div class="mockup-pill-bar glass-neon"></div>
+                    <div class="mockup-pill-bar glass-neon"></div>
+                  </div>
+                  <span class="live-badge video-badge">Video Loop</span>
+                </div>
+                <span class="theme-name-label">Neon Thành Phố · Video</span>
+              </div>
+
+              <!-- Video Mẫu Sẵn: Dải Ngân Hà Vũ Trụ (Galaxy Loop) -->
+              <div class="theme-card" data-theme-id="video_galaxy_loop">
+                <div class="theme-preview-card theme-bg-galaxy">
+                  <div class="card-pills-mockup">
+                    <div class="mockup-pill-bar glass-purple"></div>
+                    <div class="mockup-pill-bar glass-purple"></div>
+                    <div class="mockup-pill-bar glass-purple"></div>
+                    <div class="mockup-pill-bar glass-purple"></div>
+                  </div>
+                  <span class="live-badge video-badge">Video Loop</span>
+                </div>
+                <span class="theme-name-label">Vũ Trụ Galaxy · Video</span>
+              </div>
+
+            </div>
+
+            <div class="wizard-bottom-actions">
+              <button type="button" class="btn-gradient-submit" id="step6ContinueBtn">Hoàn tất & Xem Bio</button>
+            </div>
+          </div>
+
+          <!-- BƯỚC 7: KẾT QUẢ "TRÔNG TUYỆT VỜI!" (Theo Screenshot 123220) -->
+          <div class="wizard-slide" data-step="7">
+            <h1 class="slide-title-great">Trông tuyệt vời!</h1>
+            <p class="slide-subtitle-center">Trang Bio cá nhân của bạn đã sẵn sàng chia sẻ đến bạn bè và người theo dõi.</p>
+
+            <!-- Phone Mockup Container -->
+            <div class="phone-presentation-stage">
+              <div class="phone-chassis">
+                <div class="phone-screen-viewport" id="phonePreviewViewport">
+                  
+                  <!-- Inside Phone Background -->
+                  <div class="phone-bg-container">
+                    <video id="phoneBgVideo" class="phone-bg-video" autoplay loop muted playsinline></video>
+                    <div id="phoneBgImage" class="phone-bg-image" style="background-image: url('assets/rainy_city_night.jpg');"></div>
+                    <canvas id="phoneRainCanvas" class="phone-canvas"></canvas>
+                    <div id="phoneDarkOverlay" class="phone-dark-overlay"></div>
+                  </div>
+
+                  <!-- Phone Content Area -->
+                  <div class="phone-content-body">
+                    <div class="phone-profile-section">
+                      <div class="phone-avatar-wrapper">
+                        <img id="phoneAvatarImg" src="assets/avatar_abg.jpg" alt="Avatar">
+                      </div>
+                      <h2 class="phone-profile-name" id="phoneUserName">Abg</h2>
+                      <p class="phone-profile-bio" id="phoneUserBio">Digital Creator & Designer ✨ Chào mừng bạn đến với góc nhỏ của mình!</p>
+                    </div>
+
+                    <!-- Custom Links Container inside Phone -->
+                    <div class="phone-links-container" id="phoneLinksContainer">
+                      <a href="#" class="phone-link-pill" target="_blank" rel="noopener">
+                        <span>Fb</span>
+                      </a>
+                    </div>
+
+                    <!-- Social Icons Row inside Phone -->
+                    <div class="phone-social-icons-row" id="phoneSocialRow">
+                      <a href="#" class="phone-social-icon-btn" title="Instagram" id="phoneSocialInstagram">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                      </a>
+                      <a href="#" class="phone-social-icon-btn" title="TikTok" id="phoneSocialTiktok">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 3 15.68 6.34 6.34 0 0 0 9.34 22a6.33 6.33 0 0 0 6.33-6.32V8.6a8.28 8.28 0 0 0 4.84 1.55V6.69h-.92z"/></svg>
+                      </a>
+                      <a href="#" class="phone-social-icon-btn" title="YouTube" id="phoneSocialYoutube">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                      </a>
+                    </div>
+
+                    <!-- Watermark Logo at bottom -->
+                    <div class="phone-watermark">
+                      <div class="brand-badge mini">
+                        <span class="brand-text-top">BIO</span>
+                        <span class="brand-text-sub">LINK</span>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action buttons below phone -->
+            <div class="finish-action-row">
+              <button type="button" class="btn-action-pill primary" id="btnOpenFullScreenBio">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                Xem toàn màn hình
+              </button>
+
+              <button type="button" class="btn-action-pill secondary" id="btnCopyBioLink">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Sao chép liên kết
+              </button>
+
+              <button type="button" class="btn-action-pill secondary" id="btnShowQrCode">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Mã QR
+              </button>
+
+              <button type="button" class="btn-action-pill secondary" id="btnBackToEdit">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Chỉnh sửa
+              </button>
+            </div>
+
+          </div>
+
+        </div> <!-- end slides container -->
+
+      </div> <!-- end wizard wrapper -->
+    </section>
+
+    <!-- ============================================ -->
+    <!-- VIEW 2: SPLIT STUDIO VIEW (Editor + Live Phone)-->
+    <!-- ============================================ -->
+    <section id="splitStudioSection" class="split-studio-section hidden-view">
+      <div class="studio-left-editor">
+        <div class="studio-editor-tabs">
+          <button class="studio-tab-btn active" data-studio-pane="pane-profile">Hồ sơ</button>
+          <button class="studio-tab-btn" data-studio-pane="pane-links">Liên kết</button>
+          <button class="studio-tab-btn" data-studio-pane="pane-themes">Chủ đề & Video</button>
+          <button class="studio-tab-btn" data-studio-pane="pane-settings">Cài đặt</button>
+        </div>
+
+        <div class="studio-pane-content" id="studioPaneContainer">
+          <!-- Dynamic pane content rendered by app.js -->
+        </div>
+      </div>
+
+      <div class="studio-right-preview">
+        <div class="preview-device-header">
+          <span class="preview-tag">Bản xem trước trực tiếp</span>
+          <div class="device-actions">
+            <button class="btn-device-toggle" id="btnDeviceRefresh" title="Làm mới">↻</button>
+            <button class="btn-device-toggle" id="btnDeviceExpand" title="Toàn màn hình">⛶</button>
+          </div>
+        </div>
+        <div id="studioPhoneMockupSlot" class="studio-phone-mockup-slot">
+          <!-- Cloned or synced phone view here -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- VIEW 3: FULLSCREEN PUBLIC BIO PAGE           -->
+    <!-- ============================================ -->
+    <section id="publicBioSection" class="public-bio-section hidden-view">
+      <div class="public-bio-overlay-top">
+        <button id="btnExitPublicBio" class="btn-floating-dock-action" title="Quay lại trình chỉnh sửa">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Chỉnh sửa Bio
+        </button>
+
+        <div class="floating-video-quick-controls">
+          <button id="btnFloatingVideoUpload" class="btn-floating-dock-action" title="Tải video nền khác">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            Video nền
+          </button>
+          <button id="btnToggleAudio" class="btn-floating-dock-action icon-only" title="Bật/Tắt âm thanh">
+            <svg id="audioIconSvg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="public-bio-card-center">
+        <!-- Avatar with Aura -->
+        <div class="public-avatar-container">
+          <div class="avatar-glow-ring"></div>
+          <img id="publicAvatarImg" src="assets/avatar_abg.jpg" alt="Avatar" class="public-avatar-img">
+        </div>
+
+        <!-- Name & Badge -->
+        <div class="public-name-badge">
+          <h1 id="publicUserName" class="public-name-text">Abg</h1>
+          <span class="verified-badge" title="Đã xác thực">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#38bdf8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </span>
+        </div>
+
+        <!-- Bio Description -->
+        <p id="publicUserBio" class="public-bio-description">Digital Creator & Designer ✨ Chào mừng bạn đến với góc nhỏ của mình!</p>
+
+        <!-- Social Icons Row -->
+        <div id="publicSocialIconsRow" class="public-social-row">
+          <!-- Populated dynamically -->
+        </div>
+
+        <!-- Custom Links List -->
+        <div id="publicLinksList" class="public-links-column">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================ -->
+  <!-- MODALS & TOAST NOTIFICATION                  -->
+  <!-- ============================================ -->
+
+  <!-- ============================================ -->
+  <!-- MODALS & TOAST NOTIFICATION                  -->
+  <!-- ============================================ -->
+
+  <!-- UPGRADED QR CODE MODAL (SCANNABLE & REAL) -->
+  <div id="qrModal" class="modal-backdrop hidden-modal">
+    <div class="modal-card modal-qr-card">
+      <div class="modal-header">
+        <div class="modal-title-with-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <h3 class="modal-title">Mã QR của trang Bio</h3>
+        </div>
+        <button class="modal-close-btn" id="btnCloseQrModal">✕</button>
+      </div>
+
+      <div class="modal-body qr-modal-body">
+        <!-- Target Type Tabs -->
+        <div class="qr-target-tabs">
+          <button type="button" class="qr-tab-btn active" data-qr-type="network" title="Cho điện thoại quét khi cùng mạng Wi-Fi">
+            📱 Quét qua Wi-Fi
+          </button>
+          <button type="button" class="qr-tab-btn" data-qr-type="local" title="Đường dẫn máy cục bộ">
+            💻 Localhost
+          </button>
+          <button type="button" class="qr-tab-btn" data-qr-type="custom" title="Tùy chỉnh tên miền hoặc link công khai">
+            🌐 Tùy chỉnh URL
+          </button>
+        </div>
+
+        <!-- Custom URL Input (Hidden by default unless custom tab selected) -->
+        <div id="qrCustomUrlWrapper" class="qr-custom-url-box hidden">
+          <input type="text" id="qrCustomUrlInput" class="input-modern" placeholder="https://yourdomain.com/abg" value="https://biolink.me/abg">
+        </div>
+
+        <!-- Scannable QR Code Canvas Wrapper -->
+        <div class="qr-canvas-wrapper" id="qrCanvasWrapper">
+          <!-- Real Canvas / Image generated here by qrcode.min.js -->
+        </div>
+
+        <!-- Encoded URL Preview and Quick Copy -->
+        <div class="qr-url-preview-box">
+          <span class="qr-url-text" id="qrDisplayUrl">http://10.112.194.161:3000/?u=abg</span>
+          <button type="button" class="btn-copy-qr-url" id="btnCopyQrUrl" title="Sao chép đường dẫn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <p class="qr-hint">
+          📸 <strong>Cách mở:</strong> Mở ứng dụng <strong>Camera</strong> trên điện thoại thông minh (iPhone hoặc Android) và hướng vào mã QR để mở trang Bio này ngay lập tức!
+        </p>
+
+        <!-- Actions -->
+        <div class="qr-action-buttons">
+          <button type="button" class="btn-gradient-submit" id="btnDownloadQr">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Tải mã QR (PNG)
+          </button>
+          <a href="#" target="_blank" class="btn-action-pill secondary" id="btnOpenDirectLink">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Mở thử trên tab mới
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUTHENTICATION MODAL (SIGN IN / SIGN UP / GOOGLE AUTH) -->
+  <div id="authModal" class="modal-backdrop hidden-modal">
+    <div class="modal-card modal-auth-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="authModalTitle">Tài khoản Bio Link</h3>
+        <button class="modal-close-btn" id="btnCloseAuthModal">✕</button>
+      </div>
+
+      <div class="modal-body auth-modal-body">
+        <!-- Auth Requirement Banner -->
+        <div id="authRequireBanner" class="auth-require-banner hidden">
+          <span class="banner-icon">🔒</span>
+          <span id="authRequireBannerText">Bạn cần đăng nhập hoặc đăng ký tài khoản để bắt đầu tạo trang Bio của mình!</span>
+        </div>
+
+        <!-- Auth Switch Tabs -->
+        <div class="auth-toggle-tabs">
+          <button type="button" class="auth-tab-btn active" id="tabBtnLogin">Đăng nhập</button>
+          <button type="button" class="auth-tab-btn" id="tabBtnRegister">Đăng ký mới</button>
+        </div>
+
+        <!-- GOOGLE SIGN-IN BUTTON (OFFICIAL BRANDING) -->
+        <button type="button" class="btn-google-oauth" id="btnGoogleSignIn">
+          <svg class="google-icon" width="20" height="20" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span id="googleBtnText">Tiếp tục với Google</span>
+        </button>
+
+        <div class="auth-divider">
+          <span>hoặc sử dụng Email</span>
+        </div>
+
+        <!-- FORM: ĐĂNG NHẬP (SIGN IN) -->
+        <form id="loginForm" class="auth-form-view">
+          <div class="form-group-floating">
+            <label class="input-label">Email hoặc Tên người dùng</label>
+            <input type="text" id="loginIdentifier" class="input-modern" placeholder="teome5575@gmail.com hoặc abg" required>
+          </div>
+
+          <div class="form-group-floating">
+            <div class="label-with-counter">
+              <label class="input-label">Mật khẩu</label>
+              <a href="#" class="forgot-link" id="btnForgotPwd">Quên mật khẩu?</a>
+            </div>
+            <div class="password-input-wrapper">
+              <input type="password" id="loginPassword" class="input-modern" placeholder="Nhập mật khẩu của bạn..." required>
+              <button type="button" class="btn-toggle-eye" data-target="loginPassword">👁</button>
+            </div>
+          </div>
+
+          <div class="remember-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="loginRememberMe" checked>
+              <span>Ghi nhớ đăng nhập trên thiết bị này</span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn-gradient-submit" id="btnSubmitLogin">Đăng nhập</button>
+        </form>
+
+        <!-- FORM: ĐĂNG KÝ (SIGN UP) -->
+        <form id="registerForm" class="auth-form-view hidden">
+          <div class="form-group-floating">
+            <label class="input-label">Họ và tên</label>
+            <input type="text" id="regFullName" class="input-modern" placeholder="Ví dụ: Nguyễn Văn A" required>
+          </div>
+
+          <div class="form-group-floating">
+            <div class="label-with-counter">
+              <label class="input-label">Tên người dùng (Slug liên kết Bio)</label>
+              <span class="char-counter" id="slugPreview">biolink.me/username</span>
+            </div>
+            <input type="text" id="regUsername" class="input-modern" placeholder="abg (chỉ chữ thường và số)" required pattern="[a-zA-Z0-9_\-]+">
+          </div>
+
+          <div class="form-group-floating">
+            <label class="input-label">Địa chỉ Email</label>
+            <input type="email" id="regEmail" class="input-modern" placeholder="name@example.com" required>
+          </div>
+
+          <div class="form-group-floating">
+            <label class="input-label">Mật khẩu</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="regPassword" class="input-modern" placeholder="Tối thiểu 6 ký tự..." required minlength="6">
+              <button type="button" class="btn-toggle-eye" data-target="regPassword">👁</button>
+            </div>
+            <div class="password-strength-bar">
+              <div id="pwdStrengthFill" class="strength-fill"></div>
+            </div>
+            <span class="strength-label" id="pwdStrengthLabel">Độ mạnh mật khẩu: Chưa nhập</span>
+          </div>
+
+          <div class="form-group-floating">
+            <label class="input-label">Xác nhận mật khẩu</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="regConfirmPassword" class="input-modern" placeholder="Nhập lại mật khẩu..." required minlength="6">
+              <button type="button" class="btn-toggle-eye" data-target="regConfirmPassword">👁</button>
+            </div>
+          </div>
+
+          <div class="remember-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="regAcceptTerms" required checked>
+              <span>Tôi đồng ý với <a href="#" class="terms-link">Điều khoản dịch vụ</a> và <a href="#" class="terms-link">Chính sách bảo mật</a></span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn-gradient-submit" id="btnSubmitRegister">Tạo tài khoản Bio Link</button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- GOOGLE ACCOUNT CHOOSER POPUP (MODAL SIMULATION / SELECTION) -->
+  <div id="googleAuthModal" class="modal-backdrop hidden-modal">
+    <div class="modal-card modal-google-card">
+      <div class="google-dialog-header">
+        <svg class="google-icon" width="24" height="24" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <div class="google-titles">
+          <h4>Đăng nhập bằng Google</h4>
+          <p>để tiếp tục đến Bio Link</p>
+        </div>
+      </div>
+
+      <div class="google-account-list">
+        <!-- Default Account from Screenshot 122645 -->
+        <button type="button" class="google-acc-item" id="btnChooseDefaultGoogle">
+          <div class="acc-avatar-circle">
+            <span>T</span>
+          </div>
+          <div class="acc-details">
+            <span class="acc-name">Abg Creator</span>
+            <span class="acc-email">teome5575@gmail.com</span>
+          </div>
+          <span class="acc-badge">Đã lưu</span>
+        </button>
+
+        <!-- Custom Google Account input toggle -->
+        <button type="button" class="google-acc-item add-account" id="btnToggleOtherGoogle">
+          <div class="acc-avatar-circle custom">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          </div>
+          <div class="acc-details">
+            <span class="acc-name">Sử dụng tài khoản Google khác</span>
+            <span class="acc-email">Nhập email @gmail.com của bạn</span>
+          </div>
+        </button>
+
+        <!-- Form for other Google account -->
+        <div id="otherGoogleForm" class="other-google-form hidden">
+          <input type="text" id="customGoogleName" class="input-modern" placeholder="Họ và tên của bạn (Ví dụ: Tuấn Anh)...">
+          <input type="email" id="customGoogleEmail" class="input-modern" placeholder="your_email@gmail.com" style="margin-top: 8px;">
+          <input type="password" id="customGooglePassword" class="input-modern" placeholder="Mật khẩu bảo vệ tài khoản (tối thiểu 6 ký tự)..." style="margin-top: 8px;">
+          <button type="button" class="btn-gradient-submit" id="btnConfirmOtherGoogle" style="margin-top: 10px; padding: 10px;">Xác nhận đăng nhập & Bảo mật</button>
+        </div>
+      </div>
+
+      <div class="google-dialog-footer">
+        <p class="google-notice">Bio Link chỉ chia sẻ tên, địa chỉ email và ảnh hồ sơ công khai của bạn với sự đồng ý của bạn.</p>
+        <button type="button" class="btn-cancel-google" id="btnCancelGoogleAuth">Hủy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toastNotification" class="toast-popup hidden-toast">
+    <div class="toast-icon">✓</div>
+    <div class="toast-message" id="toastMessage">Đã sao chép liên kết vào bộ nhớ tạm!</div>
+  </div>
+
+  <!-- Scripts: QR Code Generator & App Engine -->
+  <script src="qrcode.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

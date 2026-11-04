@@ -1,0 +1,6 @@
+# Cấu hình Keystore ký duyệt cố định cho mọi bản APK phát hành
+# Đảm bảo cài đè liên tục không bao giờ bị lỗi "Lỗi phân tích cú pháp" hoặc "Xung đột chữ ký"
+storePassword=biolinkapp2026
+keyPassword=biolinkapp2026
+keyAlias=bio_release_key
+storeFile=../bio_release.keystore
