@@ -686,6 +686,19 @@ const server = http.createServer(async (req, res) => {
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
+      // Clean URL / SPA Fallback: If not an API route and not static media, serve index.html (e.g. /anh09, /abg)
+      if (!pathname.startsWith('/api/') && !pathname.startsWith('/uploads/') && !pathname.startsWith('/releases/')) {
+        const indexPath = path.join(ROOT_DIR, 'index.html');
+        return fs.readFile(indexPath, (readErr, content) => {
+          if (!readErr) {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(content);
+            return;
+          }
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('404 Not Found');
+        });
+      }
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('404 Not Found');
       return;

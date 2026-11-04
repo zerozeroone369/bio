@@ -452,7 +452,7 @@ function resetStateToUser(user = null, bioData = null) {
   // Update input fields in wizard / studio
   if (dom.userNameInput) dom.userNameInput.value = state.name;
   if (dom.userSlugInput) dom.userSlugInput.value = state.username || 'user';
-  if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `?u=${state.username || 'user'}`;
+  if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `/${state.username || 'user'}`;
   if (dom.slugDynamicText) dom.slugDynamicText.textContent = state.username || 'user';
   if (dom.userBioInput) dom.userBioInput.value = state.bio;
   if (dom.avatarPreviewImg) dom.avatarPreviewImg.src = state.avatar;
@@ -478,10 +478,12 @@ function initAuthSystem() {
 
           const params = new URLSearchParams(window.location.search);
           const uParam = params.get('u');
+          const pSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').replace(/^@/, '');
+          const targetU = uParam || pSlug;
           // If no specific other user target in URL or URL matches current user
-          if (!uParam || uParam.toLowerCase() === currentUser.username.toLowerCase()) {
+          if (!targetU || targetU.toLowerCase() === currentUser.username.toLowerCase()) {
             resetStateToUser(currentUser, currentUser.bioData);
-            window.history.replaceState({ username: currentUser.username }, '', `/?u=${encodeURIComponent(currentUser.username)}`);
+            window.history.replaceState({ username: currentUser.username }, '', `/${encodeURIComponent(currentUser.username)}`);
           }
         } else {
           // Token expired or invalid
@@ -569,7 +571,7 @@ function loginUser(userData, token = null) {
   resetStateToUser(userData, userData.bioData);
 
   // Sync browser URL to this logged-in account
-  const newUrl = `/?u=${encodeURIComponent(userData.username)}`;
+  const newUrl = `/${encodeURIComponent(userData.username)}`;
   window.history.replaceState({ username: userData.username }, '', newUrl);
 
   closeAuthModal();
@@ -610,7 +612,7 @@ function showMyPublicBio() {
 
   // Sync browser URL to this user's username
   const u = currentUser.username || state.username || 'user';
-  const newUrl = `/?u=${encodeURIComponent(u)}`;
+  const newUrl = `/${encodeURIComponent(u)}`;
   window.history.replaceState({ username: u }, '', newUrl);
 
   // Switch to public bio view
@@ -666,7 +668,15 @@ function saveCurrentBioToUser() {
 
 function checkUrlParamsForPublicBio() {
   const params = new URLSearchParams(window.location.search);
-  const targetUsername = params.get('u') || params.get('user');
+  const qUser = params.get('u') || params.get('user');
+
+  // Extract slug from clean pathname (e.g. /anh09 -> anh09)
+  let pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').replace(/^@/, '');
+  if (pathSlug === 'index.html' || pathSlug === 'home' || pathSlug === 'wizard' || pathSlug === 'public') {
+    pathSlug = '';
+  }
+
+  const targetUsername = qUser || pathSlug;
   const viewMode = params.get('view');
 
   if (targetUsername) {
@@ -676,8 +686,9 @@ function checkUrlParamsForPublicBio() {
     if (currentUser && (currentUser.username.toLowerCase() === cleanTarget || currentUser.email.toLowerCase() === cleanTarget)) {
       resetStateToUser(currentUser, currentUser.bioData);
       switchMainView('public');
-      if (currentUser.username && currentUser.username.toLowerCase() !== cleanTarget) {
-        window.history.replaceState({ username: currentUser.username }, '', `/?u=${encodeURIComponent(currentUser.username)}`);
+      const cleanUrl = `/${encodeURIComponent(currentUser.username)}`;
+      if (window.location.pathname !== cleanUrl || window.location.search.includes('u=')) {
+        window.history.replaceState({ username: currentUser.username }, '', cleanUrl);
       }
       return true;
     }
@@ -689,8 +700,9 @@ function checkUrlParamsForPublicBio() {
         if (res.success && res.bio) {
           const finalSlug = res.bio.username || cleanTarget;
           resetStateToUser({ username: finalSlug, name: res.bio.name }, res.bio);
-          if (finalSlug.toLowerCase() !== cleanTarget) {
-            window.history.replaceState({ username: finalSlug }, '', `/?u=${encodeURIComponent(finalSlug)}`);
+          const cleanUrl = `/${encodeURIComponent(finalSlug)}`;
+          if (window.location.pathname !== cleanUrl || window.location.search.includes('u=')) {
+            window.history.replaceState({ username: finalSlug }, '', cleanUrl);
           }
         } else {
           // Check local users
@@ -698,6 +710,8 @@ function checkUrlParamsForPublicBio() {
           for (const email in db) {
             if (db[email].username === cleanTarget && db[email].bioData) {
               resetStateToUser(db[email], db[email].bioData);
+              const cleanUrl = `/${encodeURIComponent(cleanTarget)}`;
+              window.history.replaceState({ username: cleanTarget }, '', cleanUrl);
               break;
             }
           }
@@ -727,13 +741,13 @@ function getTargetBioUrl() {
   const u = state.username || (currentUser ? currentUser.username : 'abg');
   if (currentQrType === 'network') {
     const netBase = networkInfo.networkUrl || `http://${networkInfo.ip}:${networkInfo.port}`;
-    return `${netBase}/?u=${encodeURIComponent(u)}`;
+    return `${netBase}/${encodeURIComponent(u)}`;
   } else if (currentQrType === 'local') {
-    return `${window.location.origin}/?u=${encodeURIComponent(u)}`;
+    return `${window.location.origin}/${encodeURIComponent(u)}`;
   } else if (currentQrType === 'custom') {
-    return dom.qrCustomUrlInput.value.trim() || `https://biolink.me/${u}`;
+    return dom.qrCustomUrlInput.value.trim() || `${window.location.origin}/${encodeURIComponent(u)}`;
   }
-  return `${window.location.origin}/?u=${encodeURIComponent(u)}`;
+  return `${window.location.origin}/${encodeURIComponent(u)}`;
 }
 
 function openQrModal() {
@@ -1088,10 +1102,10 @@ function bindEvents() {
     if (autoSlug && (!state.hasCustomSlugManual || state.username === 'abg')) {
       state.username = autoSlug;
       if (dom.userSlugInput) dom.userSlugInput.value = autoSlug;
-      if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `?u=${autoSlug}`;
+      if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `/${autoSlug}`;
       if (dom.slugDynamicText) dom.slugDynamicText.textContent = autoSlug;
       if (currentUser) currentUser.username = autoSlug;
-      window.history.replaceState({ username: autoSlug }, '', `/?u=${encodeURIComponent(autoSlug)}`);
+      window.history.replaceState({ username: autoSlug }, '', `/${encodeURIComponent(autoSlug)}`);
     }
 
     updatePhonePreview();
@@ -1104,10 +1118,10 @@ function bindEvents() {
       state.hasCustomSlugManual = true;
       const cleanSlug = e.target.value.toLowerCase().replace(/[^a-z0-9_\-]/g, '') || 'user';
       state.username = cleanSlug;
-      if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `?u=${cleanSlug}`;
+      if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `/${cleanSlug}`;
       if (dom.slugDynamicText) dom.slugDynamicText.textContent = cleanSlug;
       if (currentUser) currentUser.username = cleanSlug;
-      window.history.replaceState({ username: cleanSlug }, '', `/?u=${encodeURIComponent(cleanSlug)}`);
+      window.history.replaceState({ username: cleanSlug }, '', `/${encodeURIComponent(cleanSlug)}`);
       updatePhonePreview();
       updatePublicBioView();
       saveCurrentBioToUser();
@@ -2715,10 +2729,11 @@ function loadSavedVideo() {
    ========================================================================== */
 
 function copyBioLinkToClipboard() {
-  const u = state.username || (currentUser ? currentUser.username : 'abg');
-  const netUrl = `${networkInfo.networkUrl}/?u=${encodeURIComponent(u)}`;
-  navigator.clipboard.writeText(netUrl).then(() => {
-    showToast(`Đã sao chép liên kết Bio Link (${netUrl})!`);
+  const u = state.username || (currentUser ? currentUser.username : 'anh01');
+  const base = window.location.origin;
+  const bioUrl = `${base}/${encodeURIComponent(u)}`;
+  navigator.clipboard.writeText(bioUrl).then(() => {
+    showToast(`Đã sao chép liên kết Bio Link (${bioUrl})!`);
   }).catch(() => {
     showToast('Đã sao chép liên kết Bio!');
   });
