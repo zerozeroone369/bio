@@ -666,8 +666,20 @@
             <p class="slide-subtitle">Tên hiển thị và vài dòng tiểu sử ngắn gọn thu hút người theo dõi.</p>
 
             <div class="form-group-floating">
-              <label for="userNameInput" class="input-label">Tên của bạn</label>
+              <label for="userNameInput" class="input-label">Tên hiển thị</label>
               <input type="text" id="userNameInput" class="input-modern" value="Abg" placeholder="Nhập tên của bạn...">
+            </div>
+
+            <div class="form-group-floating">
+              <div class="label-with-counter">
+                <label for="userSlugInput" class="input-label">Đường dẫn liên kết Bio (Username / Slug)</label>
+                <span class="char-counter" id="step4SlugPreview">?u=abg</span>
+              </div>
+              <div style="display: flex; align-items: center; position: relative;">
+                <span style="position: absolute; left: 16px; color: #94a3b8; font-size: 14px; font-weight: 500; pointer-events: none;">?u=</span>
+                <input type="text" id="userSlugInput" class="input-modern" value="abg" placeholder="anh01 (chữ và số)" style="padding-left: 48px;" pattern="[a-zA-Z0-9_\-]+">
+              </div>
+              <small style="display: block; margin-top: 6px; color: #94a3b8; font-size: 12px;">Link Bio của bạn: <strong>.../?u=<span id="slugDynamicText">abg</span></strong></small>
             </div>
 
             <div class="form-group-floating">

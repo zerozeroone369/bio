@@ -132,6 +132,9 @@ const dom = {
 
   // Step 4
   userNameInput: document.getElementById('userNameInput'),
+  userSlugInput: document.getElementById('userSlugInput'),
+  step4SlugPreview: document.getElementById('step4SlugPreview'),
+  slugDynamicText: document.getElementById('slugDynamicText'),
   userBioInput: document.getElementById('userBioInput'),
   bioCharCounter: document.getElementById('bioCharCounter'),
   step4ContinueBtn: document.getElementById('step4ContinueBtn'),
@@ -364,7 +367,21 @@ function resetStateToUser(user = null, bioData = null) {
 
   state.step = 1;
   state.name = src.name || defaults.name;
-  state.username = src.username || defaults.username;
+
+  let u = src.username || defaults.username;
+  // If user changed their name from default (e.g. to 'anh01') but slug is still 'abg', auto-upgrade slug!
+  if (state.name && state.name.toLowerCase() !== 'abg' && (!u || u === 'abg')) {
+    const slugFromName = state.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_\-]/g, '');
+    if (slugFromName) {
+      u = slugFromName;
+      if (currentUser) {
+        currentUser.username = u;
+        localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
+      }
+    }
+  }
+  state.username = u;
+
   state.bio = src.bio !== undefined ? src.bio : defaults.bio;
   state.avatar = src.avatar || defaults.avatar;
   state.theme = src.theme || defaults.theme;
@@ -434,6 +451,9 @@ function resetStateToUser(user = null, bioData = null) {
 
   // Update input fields in wizard / studio
   if (dom.userNameInput) dom.userNameInput.value = state.name;
+  if (dom.userSlugInput) dom.userSlugInput.value = state.username || 'user';
+  if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `?u=${state.username || 'user'}`;
+  if (dom.slugDynamicText) dom.slugDynamicText.textContent = state.username || 'user';
   if (dom.userBioInput) dom.userBioInput.value = state.bio;
   if (dom.avatarPreviewImg) dom.avatarPreviewImg.src = state.avatar;
   if (dom.bioCharCounter) dom.bioCharCounter.textContent = `${state.bio.length}/255`;
@@ -589,8 +609,9 @@ function showMyPublicBio() {
   resetStateToUser(currentUser, currentUser.bioData);
 
   // Sync browser URL to this user's username
-  const newUrl = `/?u=${encodeURIComponent(currentUser.username)}`;
-  window.history.replaceState({ username: currentUser.username }, '', newUrl);
+  const u = currentUser.username || state.username || 'user';
+  const newUrl = `/?u=${encodeURIComponent(u)}`;
+  window.history.replaceState({ username: u }, '', newUrl);
 
   // Switch to public bio view
   switchMainView('public');
@@ -598,9 +619,10 @@ function showMyPublicBio() {
 
 function saveCurrentBioToUser() {
   if (!currentUser) return;
+  const targetUsername = state.username || currentUser.username || 'user';
   const bioPayload = {
     name: state.name,
-    username: currentUser.username || state.username,
+    username: targetUsername,
     email: currentUser.email,
     bio: state.bio,
     avatar: state.avatar,
@@ -625,6 +647,8 @@ function saveCurrentBioToUser() {
     }
   };
 
+  currentUser.username = targetUsername;
+  currentUser.name = state.name;
   currentUser.bioData = bioPayload;
   localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
 
@@ -652,6 +676,9 @@ function checkUrlParamsForPublicBio() {
     if (currentUser && (currentUser.username.toLowerCase() === cleanTarget || currentUser.email.toLowerCase() === cleanTarget)) {
       resetStateToUser(currentUser, currentUser.bioData);
       switchMainView('public');
+      if (currentUser.username && currentUser.username.toLowerCase() !== cleanTarget) {
+        window.history.replaceState({ username: currentUser.username }, '', `/?u=${encodeURIComponent(currentUser.username)}`);
+      }
       return true;
     }
 
@@ -660,7 +687,11 @@ function checkUrlParamsForPublicBio() {
       .then(r => r.json())
       .then(res => {
         if (res.success && res.bio) {
-          resetStateToUser({ username: cleanTarget, name: res.bio.name }, res.bio);
+          const finalSlug = res.bio.username || cleanTarget;
+          resetStateToUser({ username: finalSlug, name: res.bio.name }, res.bio);
+          if (finalSlug.toLowerCase() !== cleanTarget) {
+            window.history.replaceState({ username: finalSlug }, '', `/?u=${encodeURIComponent(finalSlug)}`);
+          }
         } else {
           // Check local users
           const db = getUsersDatabase();
@@ -1047,11 +1078,41 @@ function bindEvents() {
 
   // Step 4: Name & Bio Form
   dom.userNameInput.addEventListener('input', (e) => {
-    state.name = e.target.value.trim() || 'Abg';
+    const val = e.target.value.trim() || 'Abg';
+    state.name = val;
+
+    // Auto-sync slug if user hasn't explicitly entered a custom slug or was default 'abg'
+    const autoSlug = val.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9_\-]/g, '');
+    if (autoSlug && (!state.hasCustomSlugManual || state.username === 'abg')) {
+      state.username = autoSlug;
+      if (dom.userSlugInput) dom.userSlugInput.value = autoSlug;
+      if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `?u=${autoSlug}`;
+      if (dom.slugDynamicText) dom.slugDynamicText.textContent = autoSlug;
+      if (currentUser) currentUser.username = autoSlug;
+      window.history.replaceState({ username: autoSlug }, '', `/?u=${encodeURIComponent(autoSlug)}`);
+    }
+
     updatePhonePreview();
     updatePublicBioView();
     saveCurrentBioToUser();
   });
+
+  if (dom.userSlugInput) {
+    dom.userSlugInput.addEventListener('input', (e) => {
+      state.hasCustomSlugManual = true;
+      const cleanSlug = e.target.value.toLowerCase().replace(/[^a-z0-9_\-]/g, '') || 'user';
+      state.username = cleanSlug;
+      if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `?u=${cleanSlug}`;
+      if (dom.slugDynamicText) dom.slugDynamicText.textContent = cleanSlug;
+      if (currentUser) currentUser.username = cleanSlug;
+      window.history.replaceState({ username: cleanSlug }, '', `/?u=${encodeURIComponent(cleanSlug)}`);
+      updatePhonePreview();
+      updatePublicBioView();
+      saveCurrentBioToUser();
+    });
+  }
 
   dom.userBioInput.addEventListener('input', (e) => {
     state.bio = e.target.value;

@@ -635,10 +635,17 @@ const server = http.createServer(async (req, res) => {
       // Update in corresponding user FIRST by email (or by username)
       const user = db.users.find(u => (uemail && u.email.toLowerCase() === uemail) || (uname && u.username.toLowerCase() === uname));
       if (user) {
+        if (uname && user.username.toLowerCase() !== uname) {
+          const oldUname = user.username.toLowerCase();
+          user.username = uname;
+          db.bios[uname] = payload;
+          db.bios[oldUname] = payload; // Keep alias
+        } else {
+          db.bios[user.username.toLowerCase()] = payload;
+        }
         user.bioData = payload;
         if (payload.avatar) user.avatar = payload.avatar;
         if (payload.name) user.name = payload.name;
-        db.bios[user.username.toLowerCase()] = payload;
       }
 
       if (uname) {
