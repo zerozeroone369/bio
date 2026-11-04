@@ -468,6 +468,8 @@ function resetStateToUser(user = null, bioData = null) {
     };
     if (dom.miniVideoPreview) {
       dom.miniVideoPreview.src = state.video.url;
+      dom.miniVideoPreview.muted = true;
+      dom.miniVideoPreview.volume = 0;
       dom.miniVideoPreview.load();
       dom.miniVideoPreview.play().catch(() => {});
     }
@@ -897,8 +899,8 @@ function checkUrlParamsForPublicBio() {
       .then(res => {
         if (res.success && res.bio) {
           const finalSlug = res.bio.username || cleanTarget;
+          applyTheme(res.bio.theme || 'rainy_night', res.bio);
           updatePublicBioView(res.bio, false);
-          applyTheme(res.bio.theme || 'rainy_night');
           const cleanUrl = `/${encodeURIComponent(finalSlug)}`;
           if (window.location.pathname !== cleanUrl || window.location.search.includes('u=')) {
             window.history.replaceState({ username: finalSlug }, '', cleanUrl);
@@ -908,8 +910,8 @@ function checkUrlParamsForPublicBio() {
           const db = getUsersDatabase();
           for (const email in db) {
             if (db[email].username === cleanTarget && db[email].bioData) {
+              applyTheme(db[email].bioData.theme || 'rainy_night', db[email].bioData);
               updatePublicBioView(db[email].bioData, false);
-              applyTheme(db[email].bioData.theme || 'rainy_night');
               const cleanUrl = `/${encodeURIComponent(cleanTarget)}`;
               window.history.replaceState({ username: cleanTarget }, '', cleanUrl);
               break;
@@ -2171,11 +2173,53 @@ function renderWizardStep(step) {
    VIEW SWITCHER (Wizard, Studio Split, Public Bio)
    ========================================================================== */
 
+function stopAllBackgroundMedia() {
+  if (dom.bgVideo) {
+    dom.bgVideo.pause();
+    dom.bgVideo.muted = true;
+    dom.bgVideo.currentTime = 0;
+    dom.bgVideo.removeAttribute('src');
+    dom.bgVideo.load();
+    dom.bgVideo.classList.remove('active');
+    dom.bgVideo.style.opacity = '0';
+  }
+  if (dom.phoneBgVideo) {
+    dom.phoneBgVideo.pause();
+    dom.phoneBgVideo.muted = true;
+    dom.phoneBgVideo.volume = 0;
+    dom.phoneBgVideo.currentTime = 0;
+    dom.phoneBgVideo.removeAttribute('src');
+    dom.phoneBgVideo.load();
+    dom.phoneBgVideo.classList.remove('active');
+    dom.phoneBgVideo.style.opacity = '0';
+  }
+  if (dom.miniVideoPreview) {
+    dom.miniVideoPreview.pause();
+    dom.miniVideoPreview.muted = true;
+  }
+  if (dom.holoCardVideo) {
+    dom.holoCardVideo.pause();
+    dom.holoCardVideo.muted = true;
+    dom.holoCardVideo.volume = 0;
+  }
+  if (dom.btnToggleAudio) {
+    dom.btnToggleAudio.style.display = 'none';
+  }
+  document.querySelectorAll('video').forEach(v => {
+    v.muted = true;
+  });
+}
+
 function switchMainView(viewName) {
   if (viewName === 'wizard' || viewName === 'split') {
     if (currentUser && !checkAndEnforcePayment(currentUser)) {
       return;
     }
+  }
+
+  // When switching to homepage, immediately stop and silence all background media
+  if (viewName === 'home') {
+    stopAllBackgroundMedia();
   }
 
   if (dom.navHomeBtn) dom.navHomeBtn.classList.remove('active');
@@ -2199,6 +2243,7 @@ function switchMainView(viewName) {
     dom.wizardSection.classList.remove('hidden-view');
     dom.mainHeader.style.display = 'flex';
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    applyTheme(state.theme);
   } else if (viewName === 'split') {
     dom.navSplitBtn.classList.add('active');
     dom.splitStudioSection.classList.remove('hidden-view');
@@ -2206,10 +2251,12 @@ function switchMainView(viewName) {
     renderStudioPane('pane-profile');
     syncStudioPhoneClone();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    applyTheme(state.theme);
   } else if (viewName === 'public') {
     dom.navFullBioBtn.classList.add('active');
     dom.publicBioSection.classList.remove('hidden-view');
     dom.mainHeader.style.display = 'none'; // Immersive full view
+    applyTheme(state.theme);
     updatePublicBioView();
   }
 }
@@ -2282,21 +2329,31 @@ function setHoloMood(mood) {
 
   videoElem.classList.remove('active');
   videoElem.pause();
+  videoElem.muted = true;
+  videoElem.volume = 0;
 
   if (mood === 'rainy') {
+    videoElem.removeAttribute('src');
+    videoElem.load();
     imgElem.style.backgroundImage = "url('assets/rainy_city_night.jpg')";
     startHoloRain(canvas);
   } else if (mood === 'galaxy') {
     videoElem.src = PRESET_VIDEOS.video_galaxy_loop;
+    videoElem.muted = true;
+    videoElem.volume = 0;
     videoElem.classList.add('active');
     videoElem.load();
     videoElem.play().catch(() => {});
   } else if (mood === 'cyber') {
     videoElem.src = PRESET_VIDEOS.video_neon_loop;
+    videoElem.muted = true;
+    videoElem.volume = 0;
     videoElem.classList.add('active');
     videoElem.load();
     videoElem.play().catch(() => {});
   } else if (mood === 'winter') {
+    videoElem.removeAttribute('src');
+    videoElem.load();
     imgElem.style.backgroundImage = "url('assets/theme_winter.jpg')";
     startHoloSnow(canvas);
   }
@@ -2491,19 +2548,24 @@ function setCustomVideo(url, name, size, selectCard = true) {
   state.video.size = size;
 
   // Update Mini preview in card
-  dom.miniVideoPreview.src = url;
-  dom.miniVideoPreview.load();
-  dom.miniVideoPreview.play().catch(() => {});
+  if (dom.miniVideoPreview) {
+    dom.miniVideoPreview.src = url;
+    dom.miniVideoPreview.muted = true;
+    dom.miniVideoPreview.volume = 0;
+    dom.miniVideoPreview.load();
+    dom.miniVideoPreview.play().catch(() => {});
+  }
 
-  dom.loadedVideoName.textContent = name;
-  dom.loadedVideoSize.textContent = `${size} · Đang dùng làm nền`;
+  if (dom.loadedVideoName) dom.loadedVideoName.textContent = name;
+  if (dom.loadedVideoSize) dom.loadedVideoSize.textContent = `${size} · Đang dùng làm nền`;
 
-  dom.videoEmptyState.classList.add('hidden');
-  dom.videoLoadedState.classList.remove('hidden');
+  if (dom.videoEmptyState) dom.videoEmptyState.classList.add('hidden');
+  if (dom.videoLoadedState) dom.videoLoadedState.classList.remove('hidden');
 
   if (selectCard) {
     state.theme = 'custom_video';
     applyTheme('custom_video');
+    updatePublicBioView();
   }
 }
 
@@ -2527,43 +2589,100 @@ function applyBlurSettings() {
   dom.phoneBgImage.style.filter = `blur(${blurVal})`;
 }
 
+function updateAudioButtonUI(isMuted) {
+  if (dom.videoMuteToggle) {
+    if (isMuted) {
+      dom.videoMuteToggle.classList.remove('active');
+      const textElem = dom.videoMuteToggle.querySelector('.toggle-state');
+      if (textElem) textElem.textContent = 'Tắt tiếng (Muted)';
+    } else {
+      dom.videoMuteToggle.classList.add('active');
+      const textElem = dom.videoMuteToggle.querySelector('.toggle-state');
+      if (textElem) textElem.textContent = 'Bật tiếng (Sound On)';
+    }
+  }
+  if (dom.audioIconSvg) {
+    if (isMuted) {
+      dom.audioIconSvg.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>`;
+    } else {
+      dom.audioIconSvg.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>`;
+    }
+  }
+}
+
 function toggleAudioPlayback() {
+  if (state.theme !== 'custom_video') {
+    if (dom.bgVideo) dom.bgVideo.muted = true;
+    if (dom.phoneBgVideo) {
+      dom.phoneBgVideo.muted = true;
+      dom.phoneBgVideo.volume = 0;
+    }
+    if (dom.btnToggleAudio) dom.btnToggleAudio.style.display = 'none';
+    return;
+  }
+
   state.video.muted = !state.video.muted;
-  dom.bgVideo.muted = state.video.muted;
-  dom.phoneBgVideo.muted = state.video.muted;
+  if (dom.bgVideo) {
+    dom.bgVideo.muted = state.video.muted;
+  }
+  // Phone mockup video MUST ALWAYS REMAIN 100% MUTED to prevent double audio echo
+  if (dom.phoneBgVideo) {
+    dom.phoneBgVideo.muted = true;
+    dom.phoneBgVideo.volume = 0;
+  }
+
+  updateAudioButtonUI(state.video.muted);
 
   if (state.video.muted) {
-    dom.videoMuteToggle.classList.remove('active');
-    dom.videoMuteToggle.querySelector('.toggle-state').textContent = 'Tắt tiếng (Muted)';
-    dom.audioIconSvg.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>`;
     showToast('Đã tắt tiếng video nền');
   } else {
-    dom.videoMuteToggle.classList.add('active');
-    dom.videoMuteToggle.querySelector('.toggle-state').textContent = 'Bật tiếng (Sound On)';
-    dom.audioIconSvg.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>`;
-    dom.bgVideo.play().catch(() => {});
+    if (dom.bgVideo) {
+      dom.bgVideo.play().catch(() => {});
+    }
     showToast('Đã bật âm thanh video nền 🔊');
   }
+  saveCurrentBioToUser();
 }
 
 /* ==========================================================================
    THEME ENGINE (Presets, Canvas Particles & Custom Video)
    ========================================================================== */
 
-function applyTheme(themeId) {
+function applyTheme(themeId, targetBio = null) {
   if (!themeId) themeId = 'rainy_night';
   state.theme = themeId;
 
   // 1. Reset dynamic canvas particle effects (rain & snow)
   clearCanvasEffects();
 
-  // 2. Default: Pause background videos and deactivate them
-  dom.bgVideo.pause();
-  dom.phoneBgVideo.pause();
-  dom.bgVideo.classList.remove('active');
-  dom.phoneBgVideo.classList.remove('active');
-  dom.bgVideo.style.opacity = '0';
-  dom.phoneBgVideo.style.opacity = '0';
+  const isVideoTheme = (themeId === 'custom_video' || themeId === 'video_neon_loop' || themeId === 'video_galaxy_loop');
+
+  // 2. Built-in non-video themes (rainy_night, winter, christmas, carbon, pride, cyber_glitch, glassy, chameleon, basic_dark):
+  // Completely STOP, MUTE, STRIP SRC, and UNLOAD all videos to prevent any audio or residual playback!
+  if (!isVideoTheme) {
+    if (dom.bgVideo) {
+      dom.bgVideo.pause();
+      dom.bgVideo.muted = true;
+      dom.bgVideo.currentTime = 0;
+      dom.bgVideo.removeAttribute('src');
+      dom.bgVideo.load();
+      dom.bgVideo.classList.remove('active');
+      dom.bgVideo.style.opacity = '0';
+    }
+    if (dom.phoneBgVideo) {
+      dom.phoneBgVideo.pause();
+      dom.phoneBgVideo.muted = true;
+      dom.phoneBgVideo.volume = 0;
+      dom.phoneBgVideo.currentTime = 0;
+      dom.phoneBgVideo.removeAttribute('src');
+      dom.phoneBgVideo.load();
+      dom.phoneBgVideo.classList.remove('active');
+      dom.phoneBgVideo.style.opacity = '0';
+    }
+    if (dom.btnToggleAudio) {
+      dom.btnToggleAudio.style.display = 'none';
+    }
+  }
 
   // 3. Reset image and color layers to clean defaults
   dom.bgImageLayer.style.backgroundImage = '';
@@ -2611,9 +2730,25 @@ function applyTheme(themeId) {
 
   // 6. Branch according to themeId
   if (themeId === 'custom_video') {
-    if (state.video && state.video.url) {
-      dom.bgVideo.src = state.video.url;
-      dom.bgVideo.muted = state.video.muted !== undefined ? state.video.muted : true;
+    const videoData = (targetBio && targetBio.video) ? targetBio.video : state.video;
+    if (videoData && videoData.url) {
+      // Mockup video: MUST ALWAYS BE 100% MUTED to prevent double audio echo!
+      dom.phoneBgVideo.src = videoData.url;
+      dom.phoneBgVideo.muted = true;
+      dom.phoneBgVideo.volume = 0;
+      dom.phoneBgVideo.autoplay = true;
+      dom.phoneBgVideo.loop = true;
+      dom.phoneBgVideo.setAttribute('playsinline', '');
+      dom.phoneBgVideo.classList.add('active');
+      dom.phoneBgVideo.style.opacity = '1';
+      dom.phoneBgImage.style.opacity = '0';
+      dom.phoneBgVideo.load();
+      dom.phoneBgVideo.play().catch(() => {});
+
+      // Full background video: Main page audio
+      dom.bgVideo.src = videoData.url;
+      const isMuted = (videoData.muted !== undefined) ? !!videoData.muted : true;
+      dom.bgVideo.muted = isMuted;
       dom.bgVideo.autoplay = true;
       dom.bgVideo.loop = true;
       dom.bgVideo.setAttribute('playsinline', '');
@@ -2626,16 +2761,10 @@ function applyTheme(themeId) {
         playPromise.catch(e => console.log('Autoplay deferred:', e));
       }
 
-      dom.phoneBgVideo.src = state.video.url;
-      dom.phoneBgVideo.muted = state.video.muted !== undefined ? state.video.muted : true;
-      dom.phoneBgVideo.autoplay = true;
-      dom.phoneBgVideo.loop = true;
-      dom.phoneBgVideo.setAttribute('playsinline', '');
-      dom.phoneBgVideo.classList.add('active');
-      dom.phoneBgVideo.style.opacity = '1';
-      dom.phoneBgImage.style.opacity = '0';
-      dom.phoneBgVideo.load();
-      dom.phoneBgVideo.play().catch(() => {});
+      if (dom.btnToggleAudio) {
+        dom.btnToggleAudio.style.display = 'inline-flex';
+        updateAudioButtonUI(isMuted);
+      }
       showToast('Đã kích hoạt Video nền tùy biến của bạn!');
     } else {
       // No custom video uploaded yet, fallback to rainy_night
@@ -2697,6 +2826,7 @@ function applyTheme(themeId) {
     const videoSrc = PRESET_VIDEOS[themeId] || PRESET_VIDEOS.video_neon_loop;
     dom.bgVideo.src = videoSrc;
     dom.bgVideo.muted = true;
+    dom.bgVideo.volume = 0;
     dom.bgVideo.autoplay = true;
     dom.bgVideo.loop = true;
     dom.bgVideo.setAttribute('playsinline', '');
@@ -2708,6 +2838,7 @@ function applyTheme(themeId) {
 
     dom.phoneBgVideo.src = videoSrc;
     dom.phoneBgVideo.muted = true;
+    dom.phoneBgVideo.volume = 0;
     dom.phoneBgVideo.autoplay = true;
     dom.phoneBgVideo.loop = true;
     dom.phoneBgVideo.setAttribute('playsinline', '');
@@ -2716,6 +2847,9 @@ function applyTheme(themeId) {
     dom.phoneBgImage.style.opacity = '0';
     dom.phoneBgVideo.load();
     dom.phoneBgVideo.play().catch(() => {});
+
+    if (dom.btnToggleAudio) dom.btnToggleAudio.style.display = 'none';
+
     showToast(themeId === 'video_neon_loop' ? 'Đã chuyển sang video: Neon Cyber City' : 'Đã chuyển sang video: Vũ trụ Galaxy');
   }
 
@@ -3046,6 +3180,19 @@ function updatePublicBioView(bioData = null, isOwner = null) {
       if (dom.btnFloatingVideoUpload) dom.btnFloatingVideoUpload.style.display = 'none';
     }
   }
+
+  // Audio Toggle Button: ONLY show if current theme is custom_video AND has a video URL
+  const activeTheme = data.theme || state.theme || 'rainy_night';
+  const hasCustomVideo = activeTheme === 'custom_video' && ((data.video && data.video.url) || (state.video && state.video.url));
+  if (dom.btnToggleAudio) {
+    if (hasCustomVideo) {
+      dom.btnToggleAudio.style.display = 'inline-flex';
+      const isMuted = (data.video && data.video.muted !== undefined) ? data.video.muted : state.video.muted;
+      updateAudioButtonUI(isMuted);
+    } else {
+      dom.btnToggleAudio.style.display = 'none';
+    }
+  }
 }
 
 function syncStudioPhoneClone() {
@@ -3053,6 +3200,12 @@ function syncStudioPhoneClone() {
   if (stage && dom.studioPhoneMockupSlot) {
     dom.studioPhoneMockupSlot.innerHTML = '';
     const clone = stage.cloneNode(true);
+    // Ensure all cloned videos are strictly muted to prevent duplicate audio
+    clone.querySelectorAll('video').forEach(v => {
+      v.muted = true;
+      v.volume = 0;
+      v.pause();
+    });
     dom.studioPhoneMockupSlot.appendChild(clone);
   }
 }
