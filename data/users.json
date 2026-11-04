@@ -73,7 +73,9 @@
       ],
       "lastIp": "127.0.0.1",
       "isPaid": true,
-      "isExempt": true
+      "isExempt": true,
+      "deviceIds": [],
+      "updatedAt": "2026-11-04T19:11:47.076Z"
     },
     {
       "id": "u_1793435712031_xf53v",
@@ -610,6 +612,36 @@
       "userId": "u_1793814697037_evllu",
       "email": "tester_1793814697031@gmail.com",
       "expires": 1796406697101
+    },
+    "089e0ac6411a5f9a5284acc91c0d6429de71c160f6ad7a1e": {
+      "userId": "u_demo",
+      "email": "teome5575@gmail.com",
+      "expires": 1796410889632
+    },
+    "87aafa4c3233b4f2567fc0f40e1addec8cb898e189f60aa5": {
+      "userId": "u_demo",
+      "email": "teome5575@gmail.com",
+      "expires": 1796411492837
+    },
+    "4f91359012bbda96edca3ba8dca85748b247f98735b12350": {
+      "userId": "u_demo",
+      "email": "teome5575@gmail.com",
+      "expires": 1796411493025
+    },
+    "5c51127154c214f90240d0aaf7066621a0b7d4dacd62425f": {
+      "userId": "u_demo",
+      "email": "teome5575@gmail.com",
+      "expires": 1796411493148
+    },
+    "b79078ef96b7510a05911b509ddc53c6aaa0a2c6f58a7374": {
+      "userId": "u_demo",
+      "email": "teome5575@gmail.com",
+      "expires": 1796411493274
+    },
+    "704dd6069dcc9b59f6e62d7be9dc2db05fe21d9f1200e6ae": {
+      "userId": "u_demo",
+      "email": "teome5575@gmail.com",
+      "expires": 1796411507138
     }
   },
   "passwordResets": {}

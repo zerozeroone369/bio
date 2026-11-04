@@ -54,7 +54,7 @@ async function initDatabase() {
     await mongoDb.collection('users').createIndex({ username: 1 });
     await mongoDb.collection('bios').createIndex({ username: 1 }, { unique: true });
 
-    // Đồng bộ người dùng demo nếu database trống
+    // Đồng bộ người dùng demo nếu database trống, hoặc đồng bộ từ MongoDB về local
     const count = await mongoDb.collection('users').countDocuments();
     if (count === 0) {
       const local = getLocalDb();
@@ -69,6 +69,32 @@ async function initDatabase() {
         }
         console.log('[MongoDB] Đã khởi tạo dữ liệu mẫu từ users.json vào MongoDB!');
       }
+    } else {
+      // Database MongoDB đã có dữ liệu: đồng bộ ngược lại vào users.json để lưu trữ nhất quán
+      try {
+        const mongoUsers = await mongoDb.collection('users').find({}).toArray();
+        if (mongoUsers && mongoUsers.length > 0) {
+          const local = getLocalDb();
+          for (const mUser of mongoUsers) {
+            const cleanEmail = (mUser.email || '').toLowerCase();
+            const cleanUname = (mUser.username || '').toLowerCase();
+            const idx = local.users.findIndex(u => 
+              (u.id && mUser.id && u.id === mUser.id) ||
+              (u.email && u.email.toLowerCase() === cleanEmail) ||
+              (u.username && u.username.toLowerCase() === cleanUname)
+            );
+            if (idx >= 0) {
+              local.users[idx] = { ...local.users[idx], ...mUser };
+            } else {
+              local.users.push(mUser);
+            }
+          }
+          saveLocalDb(local);
+          console.log(`[MongoDB] ✅ Đã đồng bộ ${mongoUsers.length} tài khoản từ MongoDB vào bộ nhớ hệ thống!`);
+        }
+      } catch (syncErr) {
+        console.warn('[MongoDB Sync] Không thể đồng bộ từ MongoDB về local:', syncErr.message);
+      }
     }
   } catch (err) {
     console.warn(`[MongoDB] ⚠️ Không kết nối được MongoDB (${err.message}). Tự động kích hoạt cơ chế Local Document Database (users.json)!`);
@@ -77,6 +103,54 @@ async function initDatabase() {
 }
 
 // --- CÁC HÀM CRUD TƯƠNG THÍCH MONGODB VÀ FALLBACK ---
+
+async function updateUser(id, updates) {
+  if (useMongo) {
+    try {
+      await mongoDb.collection('users').updateOne(
+        { id },
+        { $set: { ...updates, updatedAt: new Date().toISOString() } }
+      );
+    } catch (e) {
+      console.error('[MongoDB] updateUser error:', e.message);
+    }
+  }
+  const db = getLocalDb();
+  const u = db.users.find(usr => usr.id === id);
+  if (u) {
+    Object.assign(u, updates, { updatedAt: new Date().toISOString() });
+    saveLocalDb(db);
+  }
+}
+
+async function updateUserPassword(emailOrUsername, newHashedPassword) {
+  const clean = (emailOrUsername || '').trim().toLowerCase();
+  if (useMongo) {
+    try {
+      await mongoDb.collection('users').updateOne(
+        {
+          $or: [
+            { email: clean },
+            { username: clean }
+          ]
+        },
+        { $set: { password: newHashedPassword, updatedAt: new Date().toISOString() } }
+      );
+    } catch (e) {
+      console.error('[MongoDB] updateUserPassword error:', e.message);
+    }
+  }
+  const db = getLocalDb();
+  const u = db.users.find(usr => 
+    (usr.email && usr.email.toLowerCase() === clean) ||
+    (usr.username && usr.username.toLowerCase() === clean)
+  );
+  if (u) {
+    u.password = newHashedPassword;
+    u.updatedAt = new Date().toISOString();
+    saveLocalDb(db);
+  }
+}
 
 async function findUserByEmail(email) {
   const cleanEmail = email.trim().toLowerCase();
@@ -194,6 +268,8 @@ module.exports = {
   findUserByUsername,
   findUserById,
   createUser,
+  updateUser,
+  updateUserPassword,
   getBioByUsername,
   saveBioData,
   saveSession,

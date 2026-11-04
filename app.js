@@ -1813,7 +1813,7 @@ function updatePasswordStrength(pwd) {
 async function handleLoginFormSubmit(e) {
   e.preventDefault();
   const identifier = dom.loginIdentifier.value.trim();
-  const password = dom.loginPassword.value;
+  const password = dom.loginPassword.value.trim();
 
   if (!identifier || !password) {
     alert('Vui lòng nhập đầy đủ email và mật khẩu!');
@@ -1928,7 +1928,7 @@ async function handleCustomGoogleLogin() {
     const handle = email.split('@')[0];
     name = handle ? (handle.charAt(0).toUpperCase() + handle.slice(1)) : 'Người dùng Google';
   }
-  const password = dom.customGooglePassword ? dom.customGooglePassword.value : '';
+  const password = dom.customGooglePassword ? dom.customGooglePassword.value.trim() : '';
 
   if (!email || !email.includes('@')) {
     alert('Vui lòng nhập địa chỉ email @gmail.com hợp lệ!');
@@ -2035,11 +2035,7 @@ async function handleSendForgotOtp(e) {
     dom.forgotOtpCode.value = '';
     dom.forgotOtpCode.focus();
 
-    if (data.devCode) {
-      alert(`[Thử nghiệm]: Mã OTP đặt lại mật khẩu là ${data.devCode} (Đã ghi nhận trên máy chủ).`);
-    } else {
-      showToast('Đã gửi mã xác thực 6 số về Gmail của bạn!');
-    }
+    showToast('✓ Đã gửi mã xác thực 6 số về Gmail của bạn! Vui lòng kiểm tra hộp thư đến (hoặc thư rác Spam).');
   } catch (err) {
     if (dom.btnSendForgotOtp) {
       dom.btnSendForgotOtp.disabled = false;
@@ -2052,10 +2048,10 @@ async function handleSendForgotOtp(e) {
 
 async function handleResetPassword(e) {
   if (e) e.preventDefault();
-  const email = dom.sentEmailLabel.textContent.trim() || dom.forgotInputEmail.value.trim();
+  const email = (dom.sentEmailLabel.textContent.trim() || dom.forgotInputEmail.value.trim()).toLowerCase();
   const code = dom.forgotOtpCode.value.trim();
-  const newPassword = dom.forgotNewPassword.value;
-  const confirmNewPassword = dom.forgotConfirmNewPassword.value;
+  const newPassword = dom.forgotNewPassword.value.trim();
+  const confirmNewPassword = dom.forgotConfirmNewPassword.value.trim();
 
   if (!code || code.length !== 6) {
     alert('Vui lòng nhập đầy đủ mã xác thực 6 chữ số!');
@@ -2097,7 +2093,7 @@ async function handleResetPassword(e) {
       return;
     }
 
-    alert('Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới của bạn.');
+    alert('✓ Đặt lại mật khẩu thành công! Mật khẩu mới đã được lưu an toàn. Vui lòng đăng nhập bằng mật khẩu mới của bạn.');
     closeForgotModal();
     openAuthModal('login');
     dom.loginIdentifier.value = email;
@@ -2134,9 +2130,9 @@ function closeChangePasswordModal() {
 
 async function handleChangePasswordSubmit(e) {
   if (e) e.preventDefault();
-  const oldPassword = dom.inputOldPassword ? dom.inputOldPassword.value : '';
-  const newPassword = dom.inputNewPassword ? dom.inputNewPassword.value : '';
-  const confirmPassword = dom.inputConfirmNewPassword ? dom.inputConfirmNewPassword.value : '';
+  const oldPassword = dom.inputOldPassword ? dom.inputOldPassword.value.trim() : '';
+  const newPassword = dom.inputNewPassword ? dom.inputNewPassword.value.trim() : '';
+  const confirmPassword = dom.inputConfirmNewPassword ? dom.inputConfirmNewPassword.value.trim() : '';
 
   if (!oldPassword || !newPassword || !confirmPassword) {
     alert('Vui lòng điền đầy đủ tất cả các trường mật khẩu!');
@@ -2181,7 +2177,7 @@ async function handleChangePasswordSubmit(e) {
       return;
     }
 
-    showToast('✓ Đổi mật khẩu thành công!');
+    showToast('✓ Đổi mật khẩu thành công! Mật khẩu mới đã được lưu an toàn.');
     closeChangePasswordModal();
   } catch (err) {
     console.error('Change password error:', err);

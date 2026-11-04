@@ -6,6 +6,32 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const dbLayer = require('./db');
 
+// Native .env file loader (Zero external dependency)
+const envFile = path.join(__dirname, '.env');
+if (fs.existsSync(envFile)) {
+  try {
+    const envRaw = fs.readFileSync(envFile, 'utf8');
+    envRaw.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx > 0) {
+        const key = trimmed.slice(0, eqIdx).trim();
+        let val = trimmed.slice(eqIdx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    });
+    console.log('[Env] ✅ Đã nạp thành công các biến cấu hình từ file .env');
+  } catch (err) {
+    console.warn('[Env] Cảnh báo đọc file .env:', err.message);
+  }
+}
+
 let PORT = parseInt(process.env.PORT, 10) || 3000;
 const ROOT_DIR = __dirname;
 const DATA_DIR = path.join(ROOT_DIR, 'data');
@@ -24,7 +50,8 @@ const UPLOADS_AVATARS_DIR = path.join(UPLOADS_DIR, 'avatars');
 // Password Hashing Helper
 const SALT = 'bio_app_secure_salt_2026';
 function hashPassword(pwd) {
-  return crypto.createHash('sha256').update(pwd + SALT).digest('hex');
+  const safePwd = (pwd || '').toString().trim();
+  return crypto.createHash('sha256').update(safePwd + SALT).digest('hex');
 }
 
 // Client IP Helper (Supports reverse proxies like Render / Cloudflare / Nginx)
@@ -43,8 +70,21 @@ function getClientIp(req) {
 
 // Nodemailer Gmail SMTP Transporter
 function createEmailTransporter() {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
+  const smtpSecure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : smtpPort === 465;
   const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER || '';
-  const smtpPass = process.env.SMTP_PASS || process.env.GMAIL_PASS || process.env.GMAIL_APP_PASSWORD || '';
+  const smtpPass = (process.env.SMTP_PASS || process.env.GMAIL_PASS || process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
+
+  if (smtpHost && smtpUser && smtpPass) {
+    return nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: { user: smtpUser, pass: smtpPass },
+      tls: { rejectUnauthorized: false }
+    });
+  }
 
   if (smtpUser && smtpPass) {
     return nodemailer.createTransport({
@@ -52,7 +92,8 @@ function createEmailTransporter() {
       auth: {
         user: smtpUser,
         pass: smtpPass
-      }
+      },
+      tls: { rejectUnauthorized: false }
     });
   }
   return null;
@@ -127,15 +168,18 @@ async function sendResetEmail(toEmail, code, userName) {
         text: `Mã xác thực đặt lại mật khẩu Bio Link của bạn là: ${code}. Mã có hiệu lực trong 15 phút.`,
         html: htmlContent
       });
-      console.log(`[Email Sent] Password reset OTP sent to ${toEmail}`);
+      console.log(`[Email Sent] ✅ Password reset OTP sent to ${toEmail}`);
       return { sent: true };
     } catch (err) {
       console.error('[Email Error] Failed to send email via SMTP:', err.message);
-      return { sent: false, error: err.message, devCode: code };
+      return { sent: false, error: err.message };
     }
   } else {
-    console.warn(`[Email Dev Mode] SMTP credentials not set. OTP for ${toEmail} is: ${code}`);
-    return { sent: false, devCode: code, note: 'SMTP_USER và SMTP_PASS chưa được cài đặt trong môi trường.' };
+    console.warn(`[Email Service] Cần cấu hình SMTP_USER và SMTP_PASS (Mật khẩu ứng dụng Gmail) để gửi email đến ${toEmail}.`);
+    return {
+      sent: false,
+      error: 'Máy chủ chưa được cấu hình tài khoản gửi Gmail (SMTP_USER & SMTP_PASS). Vui lòng thêm Mật khẩu ứng dụng Gmail (App Password) vào biến môi trường để hệ thống gửi mã xác thực trực tiếp về Gmail!'
+    };
   }
 }
 
@@ -481,13 +525,23 @@ const server = http.createServer(async (req, res) => {
       }
 
       const identifier = email.trim().toLowerCase();
+      const cleanPassword = (password || '').toString().trim();
       const clientIp = getClientIp(req);
       const clientDeviceId = (deviceId || req.headers['x-device-id'] || '').toString().trim();
       const db = getDatabase();
-      const user = db.users.find(u => 
+      let user = db.users.find(u => 
         (u.email && u.email.toLowerCase() === identifier) || 
         (u.username && u.username.toLowerCase() === identifier)
       );
+
+      // Check MongoDB if user not found in local users.json
+      if (!user && dbLayer.isMongoConnected()) {
+        user = await dbLayer.findUserByEmail(identifier) || await dbLayer.findUserByUsername(identifier);
+        if (user) {
+          db.users.push(user);
+          saveDatabase(db);
+        }
+      }
 
       if (!user) {
         res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -496,11 +550,22 @@ const server = http.createServer(async (req, res) => {
       }
 
       // Verify Password Hash strictly
-      const inputHash = hashPassword(password);
+      const inputHash = hashPassword(cleanPassword);
       if (!user.password || user.password !== inputHash) {
-        res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: false, error: 'Mật khẩu không chính xác! Vui lòng thử lại hoặc chọn Quên mật khẩu.' }));
-        return;
+        let matched = false;
+        if (dbLayer.isMongoConnected()) {
+          const freshUser = await dbLayer.findUserByEmail(identifier) || await dbLayer.findUserByUsername(identifier);
+          if (freshUser && freshUser.password === inputHash) {
+            user.password = freshUser.password;
+            saveDatabase(db);
+            matched = true;
+          }
+        }
+        if (!matched) {
+          res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: 'Mật khẩu không chính xác! Vui lòng thử lại hoặc chọn Quên mật khẩu.' }));
+          return;
+        }
       }
 
       // Remember client device ID
@@ -571,12 +636,22 @@ const server = http.createServer(async (req, res) => {
       const clientIp = getClientIp(req);
       const clientDeviceId = (deviceId || req.headers['x-device-id'] || '').toString().trim();
       const cleanEmail = email.trim().toLowerCase();
+      const cleanPassword = (password || '').toString().trim();
       const db = getDatabase();
       let user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
 
+      // Fallback check in MongoDB if user not found in local users.json
+      if (!user && dbLayer.isMongoConnected()) {
+        user = await dbLayer.findUserByEmail(cleanEmail);
+        if (user) {
+          db.users.push(user);
+          saveDatabase(db);
+        }
+      }
+
       // If account exists and has password, ALWAYS require valid password
       if (user && user.password) {
-        if (!password) {
+        if (!cleanPassword) {
           res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({
             success: false,
@@ -585,16 +660,28 @@ const server = http.createServer(async (req, res) => {
           }));
           return;
         }
-        if (hashPassword(password) !== user.password) {
-          res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ success: false, error: 'Mật khẩu bảo mật không chính xác!' }));
-          return;
+        const inputHash = hashPassword(cleanPassword);
+        if (inputHash !== user.password) {
+          let matched = false;
+          if (dbLayer.isMongoConnected()) {
+            const freshUser = await dbLayer.findUserByEmail(cleanEmail);
+            if (freshUser && freshUser.password === inputHash) {
+              user.password = freshUser.password;
+              saveDatabase(db);
+              matched = true;
+            }
+          }
+          if (!matched) {
+            res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ success: false, error: 'Mật khẩu bảo mật không chính xác!' }));
+            return;
+          }
         }
       }
 
       // If new Google user, create user with password
       if (!user) {
-        if (!password || password.length < 6) {
+        if (!cleanPassword || cleanPassword.length < 6) {
           res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ success: false, error: 'Vui lòng thiết lập mật khẩu tối thiểu 6 ký tự để bảo vệ tài khoản Google của bạn!' }));
           return;
@@ -608,7 +695,7 @@ const server = http.createServer(async (req, res) => {
           name: displayName,
           username: username,
           email: cleanEmail,
-          password: hashPassword(password),
+          password: hashPassword(cleanPassword),
           avatar: avatar || 'assets/avatar_abg.jpg',
           authProvider: 'google',
           deviceIds: clientDeviceId ? [clientDeviceId] : [],
@@ -646,6 +733,10 @@ const server = http.createServer(async (req, res) => {
         user.bioData = defaultBio;
         db.users.push(user);
         db.bios[username.toLowerCase()] = defaultBio;
+        saveDatabase(db);
+        if (dbLayer.isMongoConnected()) {
+          await dbLayer.createUser(user);
+        }
       } else {
         // Existing user logged in successfully: remember device & IP
         if (clientDeviceId) {
@@ -701,7 +792,15 @@ const server = http.createServer(async (req, res) => {
       }
 
       const sess = db.sessions[token];
-      const user = db.users.find(u => u.id === sess.userId || (u.email && u.email.toLowerCase() === (sess.email || '').toLowerCase()));
+      let user = db.users.find(u => u.id === sess.userId || (u.email && u.email.toLowerCase() === (sess.email || '').toLowerCase()));
+      if (!user && dbLayer.isMongoConnected()) {
+        user = await dbLayer.findUserById(sess.userId) || (sess.email ? await dbLayer.findUserByEmail(sess.email) : null);
+        if (user) {
+          db.users.push(user);
+          saveDatabase(db);
+        }
+      }
+
       if (!user) {
         res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Không tìm thấy tài khoản người dùng!' }));
@@ -709,38 +808,55 @@ const server = http.createServer(async (req, res) => {
       }
 
       const { oldPassword, newPassword, confirmPassword } = await parseJsonBody(req);
+      const cleanOld = (oldPassword || '').toString().trim();
+      const cleanNew = (newPassword || '').toString().trim();
+      const cleanConfirm = (confirmPassword || '').toString().trim();
 
-      if (!oldPassword || !newPassword || !confirmPassword) {
+      if (!cleanOld || !cleanNew || !cleanConfirm) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới!' }));
         return;
       }
 
-      if (newPassword.length < 6) {
+      if (cleanNew.length < 6) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Mật khẩu mới phải có tối thiểu 6 ký tự!' }));
         return;
       }
 
-      if (newPassword !== confirmPassword) {
+      if (cleanNew !== cleanConfirm) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Mật khẩu xác nhận không khớp với mật khẩu mới!' }));
         return;
       }
 
-      const hashedOld = hashPassword(oldPassword);
+      const hashedOld = hashPassword(cleanOld);
       if (user.password && user.password !== hashedOld) {
-        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: false, error: 'Mật khẩu hiện tại không chính xác! Vui lòng kiểm tra lại.' }));
-        return;
+        let matched = false;
+        if (dbLayer.isMongoConnected()) {
+          const freshUser = await dbLayer.findUserById(user.id) || (user.email ? await dbLayer.findUserByEmail(user.email) : null);
+          if (freshUser && freshUser.password === hashedOld) {
+            user.password = freshUser.password;
+            matched = true;
+          }
+        }
+        if (!matched) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: 'Mật khẩu hiện tại không chính xác! Vui lòng kiểm tra lại.' }));
+          return;
+        }
       }
 
-      user.password = hashPassword(newPassword);
+      user.password = hashPassword(cleanNew);
       user.updatedAt = new Date().toISOString();
       saveDatabase(db);
 
+      if (dbLayer.isMongoConnected()) {
+        await dbLayer.updateUserPassword(user.email || user.username, user.password);
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true, message: 'Đổi mật khẩu thành công! Mật khẩu mới đã được lưu an toàn.' }));
+      res.end(JSON.stringify({ success: true, message: 'Đổi mật khẩu thành công! Mật khẩu mới đã được lưu an toàn vào hệ thống.' }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: false, error: e.message }));
@@ -760,7 +876,15 @@ const server = http.createServer(async (req, res) => {
 
       const cleanEmail = email.trim().toLowerCase();
       const db = getDatabase();
-      const user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+      let user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+
+      if (!user && dbLayer.isMongoConnected()) {
+        user = await dbLayer.findUserByEmail(cleanEmail);
+        if (user) {
+          db.users.push(user);
+          saveDatabase(db);
+        }
+      }
 
       if (!user) {
         res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -779,12 +903,20 @@ const server = http.createServer(async (req, res) => {
 
       const emailResult = await sendResetEmail(cleanEmail, otpCode, user.name);
 
+      if (!emailResult.sent) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({
+          success: false,
+          error: emailResult.error || 'Không thể gửi email OTP đến hộp thư của bạn. Vui lòng kiểm tra lại cấu hình hoặc thử lại sau!'
+        }));
+        return;
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({
         success: true,
-        message: 'Mã xác thực 6 số đã được gửi về Gmail của bạn! Vui lòng kiểm tra hộp thư đến (hoặc thư rác Spam).',
-        email: cleanEmail,
-        devCode: emailResult.devCode || null
+        message: 'Mã xác thực 6 số đã được gửi trực tiếp về Gmail của bạn! Vui lòng kiểm tra hộp thư đến (hoặc thư rác Spam).',
+        email: cleanEmail
       }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -797,19 +929,22 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/auth/reset-password' && req.method === 'POST') {
     try {
       const { email, code, newPassword } = await parseJsonBody(req);
-      if (!email || !code || !newPassword) {
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const cleanCode = (code || '').toString().trim();
+      const cleanNewPassword = (newPassword || '').toString().trim();
+
+      if (!cleanEmail || !cleanCode || !cleanNewPassword) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Vui lòng nhập đầy đủ email, mã xác thực và mật khẩu mới!' }));
         return;
       }
 
-      if (newPassword.length < 6) {
+      if (cleanNewPassword.length < 6) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Mật khẩu mới phải có ít nhất 6 ký tự!' }));
         return;
       }
 
-      const cleanEmail = email.trim().toLowerCase();
       const db = getDatabase();
       const resetRecord = db.passwordResets && db.passwordResets[cleanEmail];
 
@@ -827,13 +962,20 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      if (resetRecord.code !== code.trim()) {
+      if (resetRecord.code !== cleanCode) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Mã xác thực không chính xác! Vui lòng kiểm tra lại Gmail của bạn.' }));
         return;
       }
 
-      const user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+      let user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+      if (!user && dbLayer.isMongoConnected()) {
+        user = await dbLayer.findUserByEmail(cleanEmail);
+        if (user) {
+          db.users.push(user);
+        }
+      }
+
       if (!user) {
         res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Không tìm thấy người dùng!' }));
@@ -841,14 +983,19 @@ const server = http.createServer(async (req, res) => {
       }
 
       // Update password with hash
-      user.password = hashPassword(newPassword);
+      user.password = hashPassword(cleanNewPassword);
+      user.updatedAt = new Date().toISOString();
       delete db.passwordResets[cleanEmail];
       saveDatabase(db);
+
+      if (dbLayer.isMongoConnected()) {
+        await dbLayer.updateUserPassword(cleanEmail, user.password);
+      }
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({
         success: true,
-        message: 'Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới ngay bây giờ.'
+        message: 'Đặt lại mật khẩu thành công! Mật khẩu mới đã được lưu an toàn. Bạn có thể đăng nhập ngay bây giờ.'
       }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
