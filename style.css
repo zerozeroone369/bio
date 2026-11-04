@@ -1564,9 +1564,11 @@ input, textarea {
 }
 
 .phone-watermark {
-  margin-top: 24px;
-  display: flex;
-  justify-content: center;
+  display: none !important;
+}
+
+.brand-badge.mini {
+  display: none !important;
 }
 
 /* Finish Action Row */

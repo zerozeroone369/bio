@@ -108,6 +108,7 @@ const dom = {
   dropdownMyBioLink: document.getElementById('dropdownMyBioLink'),
   dropdownCopyLinkBtn: document.getElementById('dropdownCopyLinkBtn'),
   dropdownSwitchAccountBtn: document.getElementById('dropdownSwitchAccountBtn'),
+  dropdownChangePasswordBtn: document.getElementById('dropdownChangePasswordBtn'),
   dropdownLogoutBtn: document.getElementById('dropdownLogoutBtn'),
 
   // Wizard Navigation
@@ -268,6 +269,15 @@ const dom = {
   btnResendForgotOtp: document.getElementById('btnResendForgotOtp'),
   btnBackToStep1: document.getElementById('btnBackToStep1'),
 
+  // Change Password Modal
+  changePasswordModal: document.getElementById('changePasswordModal'),
+  btnCloseChangePasswordModal: document.getElementById('btnCloseChangePasswordModal'),
+  changePasswordForm: document.getElementById('changePasswordForm'),
+  inputOldPassword: document.getElementById('inputOldPassword'),
+  inputNewPassword: document.getElementById('inputNewPassword'),
+  inputConfirmNewPassword: document.getElementById('inputConfirmNewPassword'),
+  btnSubmitChangePassword: document.getElementById('btnSubmitChangePassword'),
+
   // Payment Activation Modal
   paymentModal: document.getElementById('paymentModal'),
   paymentQrImage: document.getElementById('paymentQrImage'),
@@ -410,7 +420,7 @@ function resetStateToUser(user = null, bioData = null) {
     const slugFromName = state.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_\-]/g, '');
     if (slugFromName) {
       u = slugFromName;
-      if (currentUser) {
+      if (currentUser && user && (currentUser.id === user.id || currentUser.email === user.email)) {
         currentUser.username = u;
         localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
       }
@@ -599,6 +609,19 @@ function closeAuthModal() {
   dom.authModal.classList.add('hidden-modal');
 }
 
+function getOrCreateDeviceId() {
+  try {
+    let devId = localStorage.getItem('biolink_device_id');
+    if (!devId) {
+      devId = 'dev_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+      localStorage.setItem('biolink_device_id', devId);
+    }
+    return devId;
+  } catch (e) {
+    return 'dev_fallback';
+  }
+}
+
 function rememberAccountOnDevice(userData) {
   if (!userData || (!userData.email && !userData.username)) return;
   try {
@@ -628,7 +651,10 @@ async function renderDeviceSuggestedAccounts() {
   } catch (e) {}
 
   try {
-    const res = await fetch('/api/auth/suggested-accounts');
+    const devId = getOrCreateDeviceId();
+    const res = await fetch(`/api/auth/suggested-accounts?deviceId=${encodeURIComponent(devId)}`, {
+      headers: { 'x-device-id': devId }
+    });
     const data = await res.json();
     if (data.success && Array.isArray(data.accounts)) {
       for (const s of data.accounts) {
@@ -638,7 +664,7 @@ async function renderDeviceSuggestedAccounts() {
       }
     }
   } catch (err) {
-    console.warn('Cannot fetch suggested accounts from IP:', err);
+    console.warn('Cannot fetch suggested accounts for device:', err);
   }
 
   // Deduplicate
@@ -864,23 +890,26 @@ function checkUrlParamsForPublicBio() {
       return true;
     }
 
-    // Public visitor viewing someone else's bio
+    // Public visitor viewing someone else's bio:
+    // Strictly isolate public view: DO NOT touch currentUser, DO NOT remember account on this device!
     fetch(`/api/bio/${encodeURIComponent(cleanTarget)}`)
       .then(r => r.json())
       .then(res => {
         if (res.success && res.bio) {
           const finalSlug = res.bio.username || cleanTarget;
-          resetStateToUser({ username: finalSlug, name: res.bio.name }, res.bio);
+          updatePublicBioView(res.bio, false);
+          applyTheme(res.bio.theme || 'rainy_night');
           const cleanUrl = `/${encodeURIComponent(finalSlug)}`;
           if (window.location.pathname !== cleanUrl || window.location.search.includes('u=')) {
             window.history.replaceState({ username: finalSlug }, '', cleanUrl);
           }
         } else {
-          // Check local users
+          // Check local users fallback
           const db = getUsersDatabase();
           for (const email in db) {
             if (db[email].username === cleanTarget && db[email].bioData) {
-              resetStateToUser(db[email], db[email].bioData);
+              updatePublicBioView(db[email].bioData, false);
+              applyTheme(db[email].bioData.theme || 'rainy_night');
               const cleanUrl = `/${encodeURIComponent(cleanTarget)}`;
               window.history.replaceState({ username: cleanTarget }, '', cleanUrl);
               break;
@@ -1009,10 +1038,16 @@ function bindEvents() {
     }
   });
   dom.btnExitPublicBio.addEventListener('click', () => {
-    if (currentUser) {
+    if (currentViewingPublicBio && currentViewingPublicBio.isOwner && currentUser) {
       switchMainView('wizard');
     } else {
+      if (currentUser) {
+        resetStateToUser(currentUser, currentUser.bioData);
+      } else {
+        resetStateToUser(null);
+      }
       switchMainView('home');
+      window.history.replaceState({}, '', '/');
     }
   });
 
@@ -1130,6 +1165,18 @@ function bindEvents() {
     dom.userProfileDropdown.classList.add('hidden-dropdown');
     openGoogleModal();
   });
+  if (dom.dropdownChangePasswordBtn) {
+    dom.dropdownChangePasswordBtn.addEventListener('click', () => {
+      dom.userProfileDropdown.classList.add('hidden-dropdown');
+      openChangePasswordModal();
+    });
+  }
+  if (dom.btnCloseChangePasswordModal) {
+    dom.btnCloseChangePasswordModal.addEventListener('click', closeChangePasswordModal);
+  }
+  if (dom.changePasswordForm) {
+    dom.changePasswordForm.addEventListener('submit', handleChangePasswordSubmit);
+  }
   dom.dropdownLogoutBtn.addEventListener('click', () => {
     dom.userProfileDropdown.classList.add('hidden-dropdown');
     logoutUser();
@@ -1508,8 +1555,19 @@ function bindEvents() {
    AUTH MODAL & ACTIONS
    ========================================================================== */
 
-function openAuthModal(tab = 'login') {
+function openAuthModal(tab = 'login', reasonMessage = null) {
+  if (dom.authRequireBanner) {
+    if (reasonMessage) {
+      dom.authRequireBanner.classList.remove('hidden');
+      if (dom.authRequireBannerText) dom.authRequireBannerText.textContent = reasonMessage;
+    } else {
+      dom.authRequireBanner.classList.add('hidden');
+    }
+  }
   switchAuthTab(tab);
+  if (tab === 'login') {
+    renderDeviceSuggestedAccounts();
+  }
   dom.authModal.classList.remove('hidden-modal');
 }
 
@@ -1574,10 +1632,14 @@ async function handleLoginFormSubmit(e) {
 
   showToast('Đang đăng nhập...');
   try {
+    const devId = getOrCreateDeviceId();
     const res = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: identifier, password })
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': devId
+      },
+      body: JSON.stringify({ email: identifier, password, deviceId: devId })
     });
     const data = await res.json();
     if (!data.success) {
@@ -1620,14 +1682,19 @@ async function handleRegisterFormSubmit(e) {
 
   showToast('Đang tạo tài khoản trên máy chủ...');
   try {
+    const devId = getOrCreateDeviceId();
     const res = await fetch('/api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': devId
+      },
       body: JSON.stringify({
         name: fullName,
         username: username,
         email: email,
-        password: pwd
+        password: pwd,
+        deviceId: devId
       })
     });
     const data = await res.json();
@@ -1686,13 +1753,18 @@ async function handleCustomGoogleLogin() {
 
   showToast('Đang xác thực bảo mật tài khoản...');
   try {
+    const devId = getOrCreateDeviceId();
     const res = await fetch('/api/auth/google', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': devId
+      },
       body: JSON.stringify({
         name,
         email,
-        password
+        password,
+        deviceId: devId
       })
     });
     const data = await res.json();
@@ -1848,6 +1920,87 @@ async function handleResetPassword(e) {
     }
     console.error('Reset password error:', err);
     alert('Lỗi kết nối máy chủ. Vui lòng thử lại sau!');
+  }
+}
+
+// ==========================================================================
+// CHANGE PASSWORD FLOW (IN USER PROFILE DROPDOWN)
+// ==========================================================================
+
+function openChangePasswordModal() {
+  if (dom.userProfileDropdown) dom.userProfileDropdown.classList.add('hidden-dropdown');
+  if (dom.changePasswordModal) {
+    dom.changePasswordModal.classList.remove('hidden-modal');
+    if (dom.changePasswordForm) dom.changePasswordForm.reset();
+    if (dom.inputOldPassword) dom.inputOldPassword.focus();
+  }
+}
+
+function closeChangePasswordModal() {
+  if (dom.changePasswordModal) {
+    dom.changePasswordModal.classList.add('hidden-modal');
+  }
+}
+
+async function handleChangePasswordSubmit(e) {
+  if (e) e.preventDefault();
+  const oldPassword = dom.inputOldPassword ? dom.inputOldPassword.value : '';
+  const newPassword = dom.inputNewPassword ? dom.inputNewPassword.value : '';
+  const confirmPassword = dom.inputConfirmNewPassword ? dom.inputConfirmNewPassword.value : '';
+
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    alert('Vui lòng điền đầy đủ tất cả các trường mật khẩu!');
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    alert('Mật khẩu mới phải có tối thiểu 6 ký tự!');
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    alert('Mật khẩu xác nhận không khớp với mật khẩu mới!');
+    return;
+  }
+
+  const token = localStorage.getItem('biolink_token');
+  if (!token) {
+    alert('Vui lòng đăng nhập lại để đổi mật khẩu!');
+    closeChangePasswordModal();
+    openAuthModal('login');
+    return;
+  }
+
+  if (dom.btnSubmitChangePassword) {
+    dom.btnSubmitChangePassword.disabled = true;
+    dom.btnSubmitChangePassword.textContent = 'Đang lưu thay đổi...';
+  }
+
+  try {
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ oldPassword, newPassword, confirmPassword })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(data.error || 'Đổi mật khẩu thất bại!');
+      return;
+    }
+
+    showToast('✓ Đổi mật khẩu thành công!');
+    closeChangePasswordModal();
+  } catch (err) {
+    console.error('Change password error:', err);
+    alert('Lỗi kết nối máy chủ. Vui lòng thử lại sau!');
+  } finally {
+    if (dom.btnSubmitChangePassword) {
+      dom.btnSubmitChangePassword.disabled = false;
+      dom.btnSubmitChangePassword.textContent = 'Lưu thay đổi mật khẩu';
+    }
   }
 }
 
@@ -2819,43 +2972,80 @@ function updatePhonePreview() {
   });
 }
 
-function updatePublicBioView() {
-  dom.publicAvatarImg.src = state.avatar || 'assets/avatar_abg.jpg';
-  dom.publicUserName.textContent = state.name;
-  dom.publicUserBio.textContent = state.bio;
+let currentViewingPublicBio = null;
+
+function updatePublicBioView(bioData = null, isOwner = null) {
+  const data = bioData || state;
+  const owner = isOwner !== null ? isOwner : (
+    currentUser && (
+      (currentUser.username && currentUser.username.toLowerCase() === (data.username || state.username || '').toLowerCase()) ||
+      (currentUser.email && currentUser.email.toLowerCase() === (data.email || '').toLowerCase())
+    )
+  );
+
+  currentViewingPublicBio = { data, isOwner: !!owner };
+
+  if (dom.publicAvatarImg) dom.publicAvatarImg.src = data.avatar || 'assets/avatar_abg.jpg';
+  if (dom.publicUserName) dom.publicUserName.textContent = data.name || data.username || 'Người dùng';
+  if (dom.publicUserBio) dom.publicUserBio.textContent = data.bio !== undefined ? data.bio : '';
 
   // Render Public links
-  dom.publicLinksList.innerHTML = '';
-  state.links.forEach(link => {
-    const card = document.createElement('a');
-    card.href = normalizeExternalUrl(link.url);
-    card.className = 'public-link-card';
-    card.target = '_blank';
-    card.rel = 'noopener noreferrer';
-    card.innerHTML = `<span>${escapeHtml(link.title)}</span>`;
-    dom.publicLinksList.appendChild(card);
-  });
+  if (dom.publicLinksList) {
+    dom.publicLinksList.innerHTML = '';
+    const links = Array.isArray(data.links) ? data.links : [];
+    links.forEach(link => {
+      const card = document.createElement('a');
+      card.href = normalizeExternalUrl(link.url);
+      card.className = 'public-link-card';
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+      card.innerHTML = `<span>${escapeHtml(link.title)}</span>`;
+      dom.publicLinksList.appendChild(card);
+    });
+  }
 
   // Render Public Social Row
-  dom.publicSocialIconsRow.innerHTML = '';
-  const socialsMeta = [
-    { key: 'instagram', icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>` },
-    { key: 'tiktok', icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 3 15.68 6.34 6.34 0 0 0 9.34 22a6.33 6.33 0 0 0 6.33-6.32V8.6a8.28 8.28 0 0 0 4.84 1.55V6.69h-.92z"/></svg>` },
-    { key: 'youtube', icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>` },
-    { key: 'facebook', icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>` }
-  ];
+  if (dom.publicSocialIconsRow) {
+    dom.publicSocialIconsRow.innerHTML = '';
+    const socialsMeta = [
+      { key: 'instagram', icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>` },
+      { key: 'tiktok', icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 3 15.68 6.34 6.34 0 0 0 9.34 22a6.33 6.33 0 0 0 6.33-6.32V8.6a8.28 8.28 0 0 0 4.84 1.55V6.69h-.92z"/></svg>` },
+      { key: 'youtube', icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>` },
+      { key: 'facebook', icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>` }
+    ];
 
-  socialsMeta.forEach(sm => {
-    if (state.socials[sm.key]) {
-      const btn = document.createElement('a');
-      btn.href = normalizeExternalUrl(state.socials[sm.key]);
-      btn.className = 'public-social-btn';
-      btn.target = '_blank';
-      btn.rel = 'noopener noreferrer';
-      btn.innerHTML = sm.icon;
-      dom.publicSocialIconsRow.appendChild(btn);
+    const soc = data.socials || {};
+    socialsMeta.forEach(sm => {
+      if (soc[sm.key]) {
+        const btn = document.createElement('a');
+        btn.href = normalizeExternalUrl(soc[sm.key]);
+        btn.className = 'public-social-btn';
+        btn.target = '_blank';
+        btn.rel = 'noopener noreferrer';
+        btn.innerHTML = sm.icon;
+        dom.publicSocialIconsRow.appendChild(btn);
+      }
+    });
+  }
+
+  // Update button in header overlay
+  if (dom.btnExitPublicBio) {
+    if (owner) {
+      dom.btnExitPublicBio.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Chỉnh sửa Bio
+      `;
+      dom.btnExitPublicBio.title = 'Quay lại trình chỉnh sửa';
+      if (dom.btnFloatingVideoUpload) dom.btnFloatingVideoUpload.style.display = 'inline-flex';
+    } else {
+      dom.btnExitPublicBio.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Trang chủ Bio Link
+      `;
+      dom.btnExitPublicBio.title = 'Về trang chủ';
+      if (dom.btnFloatingVideoUpload) dom.btnFloatingVideoUpload.style.display = 'none';
     }
-  });
+  }
 }
 
 function syncStudioPhoneClone() {

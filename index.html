@@ -98,6 +98,10 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
             Chuyển / Thêm tài khoản
           </button>
+          <button type="button" class="dropdown-item" id="dropdownChangePasswordBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Đổi mật khẩu
+          </button>
           <div class="dropdown-divider"></div>
           <button type="button" class="dropdown-item danger" id="dropdownLogoutBtn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -461,7 +465,7 @@
               <span class="bio-logo-text">bio</span>
               <span class="bio-logo-sparkle"></span>
             </div>
-            <p class="footer-slogan">web do tú anh sáng tạo CẢM ƠN ĐÃ ỦNG HỘ</p>
+            <p class="footer-slogan">ĐÂY LÀ WEB DO TÚ ANH Sáng Tạo Dựa Theo BIO.LINK, CẢM ƠN ĐÃ ỦNG HỘ</p>
           </div>
           <div class="footer-links-group">
             <div class="footer-col">
@@ -479,7 +483,7 @@
           </div>
         </div>
         <div class="footer-bottom-row">
-          <span>web do tú anh sáng tạo CẢM ƠN ĐÃ ỦNG HỘ</span>
+          <span>ĐÂY LÀ WEB DO TÚ ANH Sáng Tạo Dựa Theo BIO.LINK, CẢM ƠN ĐÃ ỦNG HỘ</span>
           <span class="footer-status-tag">● Tất cả hệ thống đang hoạt động tối ưu</span>
         </div>
       </footer>
@@ -1037,14 +1041,6 @@
                       </a>
                     </div>
 
-                    <!-- Watermark Logo at bottom -->
-                    <div class="phone-watermark">
-                      <div class="brand-badge mini">
-                        <span class="brand-text-top">BIO</span>
-                        <span class="brand-text-sub">LINK</span>
-                      </div>
-                    </div>
-
                   </div>
                 </div>
               </div>
@@ -1563,6 +1559,50 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- MODAL: ĐỔI MẬT KHẨU CÁ NHÂN -->
+  <div id="changePasswordModal" class="modal-backdrop hidden-modal">
+    <div class="modal-card modal-auth-card">
+      <div class="modal-header">
+        <div class="modal-title-with-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <h3 class="modal-title">Đổi mật khẩu tài khoản</h3>
+        </div>
+        <button class="modal-close-btn" id="btnCloseChangePasswordModal">✕</button>
+      </div>
+      <div class="modal-auth-body">
+        <p class="modal-desc" style="color: #94a3b8; font-size: 13.5px; margin-bottom: 18px; line-height: 1.5;">
+          Để bảo vệ tài khoản cá nhân, vui lòng nhập mật khẩu hiện tại và tạo mật khẩu mới.
+        </p>
+        <form id="changePasswordForm">
+          <div class="form-group-floating">
+            <label class="input-label">Mật khẩu hiện tại</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="inputOldPassword" class="input-modern" placeholder="Nhập mật khẩu đang dùng" required>
+              <button type="button" class="btn-toggle-eye" data-target="inputOldPassword">👁</button>
+            </div>
+          </div>
+          <div class="form-group-floating">
+            <label class="input-label">Mật khẩu mới (tối thiểu 6 ký tự)</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="inputNewPassword" class="input-modern" placeholder="Nhập mật khẩu mới" minlength="6" required>
+              <button type="button" class="btn-toggle-eye" data-target="inputNewPassword">👁</button>
+            </div>
+          </div>
+          <div class="form-group-floating">
+            <label class="input-label">Xác nhận mật khẩu mới</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="inputConfirmNewPassword" class="input-modern" placeholder="Nhập lại mật khẩu mới" minlength="6" required>
+              <button type="button" class="btn-toggle-eye" data-target="inputConfirmNewPassword">👁</button>
+            </div>
+          </div>
+          <button type="submit" class="btn-gradient-submit" id="btnSubmitChangePassword" style="margin-top: 14px;">
+            Lưu thay đổi mật khẩu
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 

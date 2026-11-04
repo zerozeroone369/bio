@@ -455,6 +455,34 @@
         "blur": 0,
         "muted": false
       }
+    },
+    "testdev_7031": {
+      "name": "Test Device User",
+      "username": "testdev_7031",
+      "bio": "Chào mừng bạn đến với trang Bio của Test Device User!",
+      "avatar": "assets/avatar_abg.jpg",
+      "theme": "rainy_night",
+      "links": [
+        {
+          "id": 1,
+          "title": "Trang cá nhân",
+          "url": "https://bio.me/@testdev_7031"
+        }
+      ],
+      "socials": {
+        "instagram": "",
+        "tiktok": "",
+        "youtube": "",
+        "facebook": ""
+      },
+      "video": {
+        "url": "",
+        "name": "",
+        "size": "",
+        "overlay": 40,
+        "blur": 0,
+        "muted": true
+      }
     }
   },
   "sessions": {
@@ -572,6 +600,16 @@
       "userId": "u_1793811835196_wkws1",
       "email": "khachhang01@gmail.com",
       "expires": 1796403874626
+    },
+    "97a9c28c1d8031abcbb707509340db4a1e4eef6adc30b41c": {
+      "userId": "u_1793814697037_evllu",
+      "email": "tester_1793814697031@gmail.com",
+      "expires": 1796406697038
+    },
+    "d2b79c86eeabc98333a6c51b74054f70b37f577182962eb7": {
+      "userId": "u_1793814697037_evllu",
+      "email": "tester_1793814697031@gmail.com",
+      "expires": 1796406697101
     }
   },
   "passwordResets": {}

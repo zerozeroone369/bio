@@ -325,14 +325,16 @@ const server = http.createServer(async (req, res) => {
   // API: AUTHENTICATION (REGISTER / LOGIN / GOOGLE / SESSION)
   // -------------------------------------------------------------
 
-  // SUGGESTED ACCOUNTS ON THIS DEVICE / IP
+  // SUGGESTED ACCOUNTS ON THIS DEVICE
   if (pathname === '/api/auth/suggested-accounts' && req.method === 'GET') {
     const clientIp = getClientIp(req);
+    const clientDeviceId = (req.headers['x-device-id'] || parsedUrl.searchParams?.get('deviceId') || '').toString().trim();
     const db = getDatabase();
     let matched = [];
-    if (clientIp) {
+    // Only suggest accounts if they were actually registered or logged in with this specific deviceId
+    if (clientDeviceId) {
       matched = db.users
-        .filter(u => Array.isArray(u.deviceIps) && u.deviceIps.includes(clientIp))
+        .filter(u => Array.isArray(u.deviceIds) && u.deviceIds.includes(clientDeviceId))
         .map(u => ({
           name: u.name,
           username: u.username,
@@ -352,7 +354,7 @@ const server = http.createServer(async (req, res) => {
   // REGISTER
   if (pathname === '/api/auth/register' && req.method === 'POST') {
     try {
-      const { name, email, password, username } = await parseJsonBody(req);
+      const { name, email, password, username, deviceId } = await parseJsonBody(req);
       if (!email || !password || !name) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Vui lòng điền đầy đủ họ tên, email và mật khẩu!' }));
@@ -366,6 +368,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const clientIp = getClientIp(req);
+      const clientDeviceId = (deviceId || req.headers['x-device-id'] || '').toString().trim();
       const cleanEmail = email.trim().toLowerCase();
       const cleanUsername = (username || name).trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '') || `user_${Date.now()}`;
 
@@ -394,6 +397,7 @@ const server = http.createServer(async (req, res) => {
         password: hashPassword(password),
         avatar: "assets/avatar_abg.jpg",
         authProvider: "email",
+        deviceIds: clientDeviceId ? [clientDeviceId] : [],
         deviceIps: clientIp ? [clientIp] : [],
         lastIp: clientIp,
         isPaid: isExempt,
@@ -469,7 +473,7 @@ const server = http.createServer(async (req, res) => {
   // LOGIN (WITH STRICT PASSWORD VERIFICATION)
   if (pathname === '/api/auth/login' && req.method === 'POST') {
     try {
-      const { email, password } = await parseJsonBody(req);
+      const { email, password, deviceId } = await parseJsonBody(req);
       if (!email || !password) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Vui lòng nhập đầy đủ email/tên người dùng và mật khẩu!' }));
@@ -478,6 +482,7 @@ const server = http.createServer(async (req, res) => {
 
       const identifier = email.trim().toLowerCase();
       const clientIp = getClientIp(req);
+      const clientDeviceId = (deviceId || req.headers['x-device-id'] || '').toString().trim();
       const db = getDatabase();
       const user = db.users.find(u => 
         (u.email && u.email.toLowerCase() === identifier) || 
@@ -496,6 +501,12 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Mật khẩu không chính xác! Vui lòng thử lại hoặc chọn Quên mật khẩu.' }));
         return;
+      }
+
+      // Remember client device ID
+      if (!Array.isArray(user.deviceIds)) user.deviceIds = [];
+      if (clientDeviceId && !user.deviceIds.includes(clientDeviceId)) {
+        user.deviceIds.push(clientDeviceId);
       }
 
       // Remember client IP on device
@@ -550,7 +561,7 @@ const server = http.createServer(async (req, res) => {
   // GOOGLE LOGIN (WITH STRICT PASSWORD VERIFICATION)
   if (pathname === '/api/auth/google' && req.method === 'POST') {
     try {
-      let { email, name, avatar, password } = await parseJsonBody(req);
+      let { email, name, avatar, password, deviceId } = await parseJsonBody(req);
       if (!email) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Thiếu thông tin tài khoản Google!' }));
@@ -558,6 +569,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const clientIp = getClientIp(req);
+      const clientDeviceId = (deviceId || req.headers['x-device-id'] || '').toString().trim();
       const cleanEmail = email.trim().toLowerCase();
       const db = getDatabase();
       let user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
@@ -599,6 +611,7 @@ const server = http.createServer(async (req, res) => {
           password: hashPassword(password),
           avatar: avatar || 'assets/avatar_abg.jpg',
           authProvider: 'google',
+          deviceIds: clientDeviceId ? [clientDeviceId] : [],
           deviceIps: clientIp ? [clientIp] : [],
           lastIp: clientIp,
           isPaid: isExempt,
@@ -634,7 +647,11 @@ const server = http.createServer(async (req, res) => {
         db.users.push(user);
         db.bios[username.toLowerCase()] = defaultBio;
       } else {
-        // Existing user logged in successfully: remember IP
+        // Existing user logged in successfully: remember device & IP
+        if (clientDeviceId) {
+          if (!Array.isArray(user.deviceIds)) user.deviceIds = [];
+          if (!user.deviceIds.includes(clientDeviceId)) user.deviceIds.push(clientDeviceId);
+        }
         if (!Array.isArray(user.deviceIps)) user.deviceIps = [];
         if (clientIp && !user.deviceIps.includes(clientIp)) {
           user.deviceIps.push(clientIp);
@@ -663,6 +680,67 @@ const server = http.createServer(async (req, res) => {
         },
         token
       }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
+  // CHANGE PASSWORD FOR LOGGED IN USER
+  if (pathname === '/api/auth/change-password' && req.method === 'POST') {
+    try {
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '') || parsedUrl.searchParams?.get('token');
+      const db = getDatabase();
+
+      if (!token || !db.sessions[token] || db.sessions[token].expires < Date.now()) {
+        res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!' }));
+        return;
+      }
+
+      const sess = db.sessions[token];
+      const user = db.users.find(u => u.id === sess.userId || (u.email && u.email.toLowerCase() === (sess.email || '').toLowerCase()));
+      if (!user) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Không tìm thấy tài khoản người dùng!' }));
+        return;
+      }
+
+      const { oldPassword, newPassword, confirmPassword } = await parseJsonBody(req);
+
+      if (!oldPassword || !newPassword || !confirmPassword) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới!' }));
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Mật khẩu mới phải có tối thiểu 6 ký tự!' }));
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Mật khẩu xác nhận không khớp với mật khẩu mới!' }));
+        return;
+      }
+
+      const hashedOld = hashPassword(oldPassword);
+      if (user.password && user.password !== hashedOld) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Mật khẩu hiện tại không chính xác! Vui lòng kiểm tra lại.' }));
+        return;
+      }
+
+      user.password = hashPassword(newPassword);
+      user.updatedAt = new Date().toISOString();
+      saveDatabase(db);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, message: 'Đổi mật khẩu thành công! Mật khẩu mới đã được lưu an toàn.' }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: false, error: e.message }));
