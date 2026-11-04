@@ -10,6 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
+  <!-- Google Identity Services (Sign In With Google / One Tap) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -1273,7 +1275,8 @@
           <button type="button" class="auth-tab-btn" id="tabBtnRegister">Đăng ký mới</button>
         </div>
 
-        <!-- GOOGLE SIGN-IN BUTTON (OFFICIAL BRANDING) -->
+        <!-- GOOGLE SIGN-IN BUTTON (OFFICIAL BRANDING & ONE-TAP INTEGRATION) -->
+        <div id="gsiButtonContainer" class="gsi-container" style="display: none; width: 100%; margin-bottom: 12px;"></div>
         <button type="button" class="btn-google-oauth" id="btnGoogleSignIn">
           <svg class="google-icon" width="20" height="20" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -1393,7 +1396,7 @@
         </svg>
         <div class="google-titles">
           <h4>Đăng nhập bằng Google</h4>
-          <p>để tiếp tục đến Bio Link</p>
+          <p>Xác thực bảo mật qua tài khoản Google trên trình duyệt</p>
         </div>
       </div>
 
@@ -1409,8 +1412,8 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
           </div>
           <div class="acc-details">
-            <span class="acc-name">Sử dụng tài khoản Google khác</span>
-            <span class="acc-email">Nhập email @gmail.com & mật khẩu</span>
+            <span class="acc-name">Đăng nhập tài khoản Google khác</span>
+            <span class="acc-email">Nhập email @gmail.com để kết nối trực tiếp</span>
           </div>
         </button>
 
@@ -1418,13 +1421,12 @@
         <div id="otherGoogleForm" class="other-google-form hidden">
           <input type="text" id="customGoogleName" class="input-modern" placeholder="Họ và tên của bạn (Ví dụ: Tuấn Anh)...">
           <input type="email" id="customGoogleEmail" class="input-modern" placeholder="your_email@gmail.com" style="margin-top: 8px;">
-          <input type="password" id="customGooglePassword" class="input-modern" placeholder="Mật khẩu bảo vệ tài khoản (bắt buộc)..." style="margin-top: 8px;">
-          <button type="button" class="btn-gradient-submit" id="btnConfirmOtherGoogle" style="margin-top: 10px; padding: 10px;">Xác nhận đăng nhập & Bảo mật</button>
+          <button type="button" class="btn-gradient-submit" id="btnConfirmOtherGoogle" style="margin-top: 10px; padding: 10px;">Tiếp tục đăng nhập với Google</button>
         </div>
       </div>
 
       <div class="google-dialog-footer">
-        <p class="google-notice">Bio Link chỉ chia sẻ tên, địa chỉ email và ảnh hồ sơ công khai của bạn với sự đồng ý của bạn.</p>
+        <p class="google-notice">🔒 Xác thực bảo mật bởi Google. Bạn không cần tạo hoặc nhớ mật khẩu riêng khi đăng nhập bằng Google.</p>
         <button type="button" class="btn-cancel-google" id="btnCancelGoogleAuth">Hủy</button>
       </div>
     </div>

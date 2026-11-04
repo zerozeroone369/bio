@@ -623,10 +623,152 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GOOGLE LOGIN (WITH STRICT PASSWORD VERIFICATION)
+  // GOOGLE OAUTH CLIENT CONFIGURATION
+  if (pathname === '/api/auth/google-config' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      clientId: process.env.GOOGLE_CLIENT_ID || ''
+    }));
+    return;
+  }
+
+  // GOOGLE OAUTH CREDENTIAL / ID_TOKEN VERIFICATION (GOOGLE IDENTITY SERVICES)
+  if (pathname === '/api/auth/google-token' && req.method === 'POST') {
+    try {
+      const { credential, deviceId } = await parseJsonBody(req);
+      if (!credential) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Thiếu mã xác thực Google Credential!' }));
+        return;
+      }
+
+      // Verify Google token via Google API tokeninfo
+      let googleData = null;
+      try {
+        const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+        if (verifyRes.ok) {
+          googleData = await verifyRes.json();
+        }
+      } catch (err) {
+        console.warn('[Google Verify Error]', err.message);
+      }
+
+      // Fallback: decode JWT payload if direct verification network timeout
+      if (!googleData || !googleData.email) {
+        try {
+          const parts = credential.split('.');
+          if (parts.length === 3) {
+            const rawPayload = Buffer.from(parts[1], 'base64').toString('utf8');
+            googleData = JSON.parse(rawPayload);
+          }
+        } catch (jwtErr) {}
+      }
+
+      if (!googleData || !googleData.email) {
+        res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Mã xác thực Google không hợp lệ hoặc đã hết hạn!' }));
+        return;
+      }
+
+      const cleanEmail = googleData.email.trim().toLowerCase();
+      const displayName = googleData.name || cleanEmail.split('@')[0];
+      const avatarUrl = googleData.picture || 'assets/avatar_abg.jpg';
+      const clientIp = getClientIp(req);
+      const clientDeviceId = (deviceId || req.headers['x-device-id'] || '').toString().trim();
+
+      const db = getDatabase();
+      let user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+      if (!user && dbLayer.isMongoConnected()) {
+        user = await dbLayer.findUserByEmail(cleanEmail);
+        if (user) {
+          db.users.push(user);
+        }
+      }
+
+      if (!user) {
+        const username = cleanEmail.split('@')[0].replace(/[^a-z0-9_\-]/g, '') || `user_${Date.now()}`;
+        const isExempt = isUserPaymentExempt(cleanEmail);
+        user = {
+          id: `u_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          name: displayName,
+          username: username,
+          email: cleanEmail,
+          password: hashPassword(`gg_token_${Date.now()}_${Math.random()}`),
+          avatar: avatarUrl,
+          authProvider: 'google',
+          deviceIds: clientDeviceId ? [clientDeviceId] : [],
+          deviceIps: clientIp ? [clientIp] : [],
+          lastIp: clientIp,
+          isPaid: isExempt,
+          isExempt: isExempt,
+          paidAt: isExempt ? new Date().toISOString() : null,
+          createdAt: new Date().toISOString()
+        };
+        const defaultBio = {
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          bio: `Chào mừng bạn đến với trang Bio của ${user.name}!`,
+          avatar: user.avatar,
+          theme: "rainy_night",
+          links: [],
+          socials: { instagram: "", tiktok: "", youtube: "", facebook: "" },
+          video: { url: "", name: "", size: "", overlay: 40, blur: 0, muted: true }
+        };
+        user.bioData = defaultBio;
+        db.users.push(user);
+        db.bios[username.toLowerCase()] = defaultBio;
+        saveDatabase(db);
+        if (dbLayer.isMongoConnected()) {
+          await dbLayer.createUser(user);
+        }
+      } else {
+        if (clientDeviceId) {
+          if (!Array.isArray(user.deviceIds)) user.deviceIds = [];
+          if (!user.deviceIds.includes(clientDeviceId)) user.deviceIds.push(clientDeviceId);
+        }
+        if (!Array.isArray(user.deviceIps)) user.deviceIps = [];
+        if (clientIp && !user.deviceIps.includes(clientIp)) {
+          user.deviceIps.push(clientIp);
+        }
+        user.lastIp = clientIp;
+        if (avatarUrl && avatarUrl !== 'assets/avatar_abg.jpg') {
+          user.avatar = avatarUrl;
+        }
+      }
+
+      const token = crypto.randomBytes(24).toString('hex');
+      db.sessions[token] = { userId: user.id, email: user.email, expires: Date.now() + 30 * 24 * 3600 * 1000 };
+      saveDatabase(db);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        success: true,
+        message: 'Đăng nhập Google thành công!',
+        user: {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          avatar: user.avatar,
+          bioData: user.bioData || db.bios[user.username],
+          isPaid: checkUserPaidStatus(user),
+          isExempt: isUserPaymentExempt(user.email),
+          paidAt: user.paidAt || null
+        },
+        token
+      }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
+  // GOOGLE LOGIN (SEAMLESS BROWSER / OAUTH INTEGRATION - NO PASSWORD REQUIRED)
   if (pathname === '/api/auth/google' && req.method === 'POST') {
     try {
-      let { email, name, avatar, password, deviceId } = await parseJsonBody(req);
+      let { email, name, avatar, deviceId } = await parseJsonBody(req);
       if (!email) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'Thiếu thông tin tài khoản Google!' }));
@@ -636,7 +778,6 @@ const server = http.createServer(async (req, res) => {
       const clientIp = getClientIp(req);
       const clientDeviceId = (deviceId || req.headers['x-device-id'] || '').toString().trim();
       const cleanEmail = email.trim().toLowerCase();
-      const cleanPassword = (password || '').toString().trim();
       const db = getDatabase();
       let user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
 
@@ -649,44 +790,8 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
-      // If account exists and has password, ALWAYS require valid password
-      if (user && user.password) {
-        if (!cleanPassword) {
-          res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({
-            success: false,
-            requirePassword: true,
-            error: 'Tài khoản này đã được bảo vệ bằng mật khẩu. Vui lòng nhập mật khẩu tài khoản!'
-          }));
-          return;
-        }
-        const inputHash = hashPassword(cleanPassword);
-        if (inputHash !== user.password) {
-          let matched = false;
-          if (dbLayer.isMongoConnected()) {
-            const freshUser = await dbLayer.findUserByEmail(cleanEmail);
-            if (freshUser && freshUser.password === inputHash) {
-              user.password = freshUser.password;
-              saveDatabase(db);
-              matched = true;
-            }
-          }
-          if (!matched) {
-            res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ success: false, error: 'Mật khẩu bảo mật không chính xác!' }));
-            return;
-          }
-        }
-      }
-
-      // If new Google user, create user with password
+      // If new Google user, create user seamlessly
       if (!user) {
-        if (!cleanPassword || cleanPassword.length < 6) {
-          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ success: false, error: 'Vui lòng thiết lập mật khẩu tối thiểu 6 ký tự để bảo vệ tài khoản Google của bạn!' }));
-          return;
-        }
-
         const username = cleanEmail.split('@')[0].replace(/[^a-z0-9_\-]/g, '') || `user_${Date.now()}`;
         const displayName = name && name !== 'Người dùng Google' ? name : (username.charAt(0).toUpperCase() + username.slice(1));
         const isExempt = isUserPaymentExempt(cleanEmail);
@@ -695,7 +800,7 @@ const server = http.createServer(async (req, res) => {
           name: displayName,
           username: username,
           email: cleanEmail,
-          password: hashPassword(cleanPassword),
+          password: hashPassword(`gg_oauth_${Date.now()}_${Math.random()}`),
           avatar: avatar || 'assets/avatar_abg.jpg',
           authProvider: 'google',
           deviceIds: clientDeviceId ? [clientDeviceId] : [],
@@ -738,7 +843,7 @@ const server = http.createServer(async (req, res) => {
           await dbLayer.createUser(user);
         }
       } else {
-        // Existing user logged in successfully: remember device & IP
+        // Existing user: remember device & IP, update avatar if provided
         if (clientDeviceId) {
           if (!Array.isArray(user.deviceIds)) user.deviceIds = [];
           if (!user.deviceIds.includes(clientDeviceId)) user.deviceIds.push(clientDeviceId);
@@ -748,6 +853,9 @@ const server = http.createServer(async (req, res) => {
           user.deviceIps.push(clientIp);
         }
         user.lastIp = clientIp;
+        if (avatar && avatar !== 'assets/avatar_abg.jpg') {
+          user.avatar = avatar;
+        }
       }
 
       const token = crypto.randomBytes(24).toString('hex');

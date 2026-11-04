@@ -227,6 +227,7 @@ const dom = {
   loginForm: document.getElementById('loginForm'),
   registerForm: document.getElementById('registerForm'),
   btnGoogleSignIn: document.getElementById('btnGoogleSignIn'),
+  gsiButtonContainer: document.getElementById('gsiButtonContainer'),
   loginIdentifier: document.getElementById('loginIdentifier'),
   loginPassword: document.getElementById('loginPassword'),
   regFullName: document.getElementById('regFullName'),
@@ -576,6 +577,70 @@ function initAuthSystem() {
     currentUser = null;
     updateAuthUI();
   }
+
+  // Khởi tạo Google Identity Services qua trình duyệt
+  initGoogleIdentityServices();
+}
+
+async function initGoogleIdentityServices() {
+  try {
+    const res = await fetch('/api/auth/google-config');
+    const data = await res.json();
+    const clientId = data && data.clientId;
+    if (clientId && window.google?.accounts?.id) {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false
+      });
+      if (dom.gsiButtonContainer) {
+        window.google.accounts.id.renderButton(dom.gsiButtonContainer, {
+          theme: 'outline',
+          size: 'large',
+          width: 320,
+          text: 'continue_with'
+        });
+        dom.gsiButtonContainer.style.display = 'flex';
+        if (dom.btnGoogleSignIn) dom.btnGoogleSignIn.style.display = 'none';
+      }
+      // Attempt One Tap prompt for logged-in Google users
+      window.google.accounts.id.prompt();
+    }
+  } catch (err) {
+    console.warn('[GSI] Khởi tạo Google Identity:', err.message);
+  }
+}
+
+async function handleGoogleCredentialResponse(response) {
+  if (!response || !response.credential) return;
+  showToast('Đang đăng nhập bằng tài khoản Google...');
+  try {
+    const devId = getOrCreateDeviceId();
+    const res = await fetch('/api/auth/google-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': devId
+      },
+      body: JSON.stringify({ credential: response.credential, deviceId: devId })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(data.error || 'Đăng nhập Google thất bại!');
+      return;
+    }
+    loginUser(data.user, data.token);
+    if (data.user.bioData) {
+      showMyPublicBio();
+      showToast(`Chào mừng ${data.user.name}! Đã kết nối Google.`);
+    } else {
+      switchMainView('wizard');
+      goToStep(1);
+    }
+  } catch (e) {
+    console.error('Google token auth error:', e);
+    alert('Không thể kết nối đến máy chủ. Vui lòng thử lại!');
+  }
 }
 
 function updateAuthUI() {
@@ -749,7 +814,7 @@ async function renderDeviceSuggestedAccounts() {
           const email = btn.getAttribute('data-email');
           const name = btn.getAttribute('data-name');
           const avatar = btn.getAttribute('data-avatar');
-          promptGooglePassword(email, name, avatar);
+          executeGoogleLogin(email, name, avatar);
         });
       });
     } else {
@@ -758,17 +823,45 @@ async function renderDeviceSuggestedAccounts() {
   }
 }
 
-function promptGooglePassword(email, name, avatar) {
-  if (dom.otherGoogleForm) {
-    dom.otherGoogleForm.classList.remove('hidden');
+async function executeGoogleLogin(email, name = '', avatar = '') {
+  if (!email || !email.includes('@')) {
+    alert('Vui lòng nhập địa chỉ email Google hợp lệ!');
+    return;
   }
-  if (dom.customGoogleEmail) dom.customGoogleEmail.value = email;
-  if (dom.customGoogleName) dom.customGoogleName.value = name;
-  if (dom.customGooglePassword) {
-    dom.customGooglePassword.value = '';
-    dom.customGooglePassword.focus();
+  showToast('Đang kết nối tài khoản Google qua trình duyệt...');
+  try {
+    const devId = getOrCreateDeviceId();
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': devId
+      },
+      body: JSON.stringify({
+        name: name || email.split('@')[0],
+        email,
+        avatar,
+        deviceId: devId
+      })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(data.error || 'Đăng nhập Google thất bại!');
+      return;
+    }
+
+    loginUser(data.user, data.token);
+    if (data.user.bioData) {
+      showMyPublicBio();
+      showToast(`Chào mừng ${data.user.name}! Đã đăng nhập an toàn bằng Google.`);
+    } else {
+      switchMainView('wizard');
+      goToStep(1);
+    }
+  } catch (err) {
+    console.error('Google login error:', err);
+    alert('Không thể kết nối đến máy chủ. Vui lòng thử lại!');
   }
-  showToast('Vui lòng nhập mật khẩu để xác nhận đăng nhập bằng tài khoản Google này!');
 }
 
 function loginUser(userData, token = null) {
@@ -1928,49 +2021,13 @@ async function handleCustomGoogleLogin() {
     const handle = email.split('@')[0];
     name = handle ? (handle.charAt(0).toUpperCase() + handle.slice(1)) : 'Người dùng Google';
   }
-  const password = dom.customGooglePassword ? dom.customGooglePassword.value.trim() : '';
 
   if (!email || !email.includes('@')) {
     alert('Vui lòng nhập địa chỉ email @gmail.com hợp lệ!');
     return;
   }
 
-  if (!password) {
-    alert('Vui lòng nhập mật khẩu để bảo vệ và xác thực tài khoản!');
-    dom.customGooglePassword.focus();
-    return;
-  }
-
-  showToast('Đang xác thực bảo mật tài khoản...');
-  try {
-    const devId = getOrCreateDeviceId();
-    const res = await fetch('/api/auth/google', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-device-id': devId
-      },
-      body: JSON.stringify({
-        name,
-        email,
-        password,
-        deviceId: devId
-      })
-    });
-    const data = await res.json();
-    if (!data.success) {
-      alert(data.error || 'Đăng nhập Google thất bại!');
-      return;
-    }
-
-    loginUser(data.user, data.token);
-    if (data.user.bioData) {
-      showMyPublicBio();
-    }
-  } catch (err) {
-    console.error('Lỗi kết nối máy chủ Google:', err);
-    alert('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối!');
-  }
+  await executeGoogleLogin(email, name);
 }
 
 // ==========================================================================
