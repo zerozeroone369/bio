@@ -268,6 +268,20 @@ const dom = {
   btnResendForgotOtp: document.getElementById('btnResendForgotOtp'),
   btnBackToStep1: document.getElementById('btnBackToStep1'),
 
+  // Payment Activation Modal
+  paymentModal: document.getElementById('paymentModal'),
+  paymentQrImage: document.getElementById('paymentQrImage'),
+  payBankName: document.getElementById('payBankName'),
+  payAccountName: document.getElementById('payAccountName'),
+  payAccountNumber: document.getElementById('payAccountNumber'),
+  payAmount: document.getElementById('payAmount'),
+  paySyntax: document.getElementById('paySyntax'),
+  btnCopyAccountNum: document.getElementById('btnCopyAccountNum'),
+  btnCopyAmount: document.getElementById('btnCopyAmount'),
+  btnCopySyntax: document.getElementById('btnCopySyntax'),
+  btnConfirmPaymentDone: document.getElementById('btnConfirmPaymentDone'),
+  btnLogoutFromPayment: document.getElementById('btnLogoutFromPayment'),
+
   // Toast
   toastNotification: document.getElementById('toastNotification'),
   toastMessage: document.getElementById('toastMessage')
@@ -507,6 +521,9 @@ function initAuthSystem() {
             resetStateToUser(currentUser, currentUser.bioData);
             window.history.replaceState({ username: currentUser.username }, '', `/${encodeURIComponent(currentUser.username)}`);
           }
+
+          // Check payment activation status
+          checkAndEnforcePayment(currentUser);
         } else {
           // Token expired or invalid
           localStorage.removeItem('biolink_token');
@@ -732,6 +749,7 @@ function loginUser(userData, token = null) {
   updatePhonePreview();
   updatePublicBioView();
   showToast(`Xin chào ${userData.name || userData.email}! Đăng nhập thành công.`);
+  checkAndEnforcePayment(currentUser);
 }
 
 function logoutUser() {
@@ -1189,6 +1207,37 @@ function bindEvents() {
       dom.forgotStepReset.classList.add('hidden');
       dom.forgotStepEmail.classList.remove('hidden');
       dom.forgotInputEmail.focus();
+    });
+  }
+
+  // Payment Modal Events
+  if (dom.btnConfirmPaymentDone) {
+    dom.btnConfirmPaymentDone.addEventListener('click', handleConfirmPayment);
+  }
+  if (dom.btnLogoutFromPayment) {
+    dom.btnLogoutFromPayment.addEventListener('click', () => {
+      closePaymentModal();
+      logoutUser();
+    });
+  }
+  if (dom.btnCopyAccountNum) {
+    dom.btnCopyAccountNum.addEventListener('click', () => {
+      const num = dom.payAccountNumber ? dom.payAccountNumber.textContent.trim() : '0932543483';
+      navigator.clipboard.writeText(num);
+      showToast(`Đã sao chép số tài khoản MB: ${num}`);
+    });
+  }
+  if (dom.btnCopyAmount) {
+    dom.btnCopyAmount.addEventListener('click', () => {
+      navigator.clipboard.writeText('5000');
+      showToast('Đã sao chép số tiền: 5.000 đ');
+    });
+  }
+  if (dom.btnCopySyntax) {
+    dom.btnCopySyntax.addEventListener('click', () => {
+      const syntax = dom.paySyntax ? dom.paySyntax.textContent.trim() : `BIO ${currentUser?.username || 'user'}`;
+      navigator.clipboard.writeText(syntax);
+      showToast(`Đã sao chép nội dung: ${syntax}`);
     });
   }
 
@@ -1802,6 +1851,125 @@ async function handleResetPassword(e) {
   }
 }
 
+// ==========================================================================
+// PAYMENT FLOW (5.000 VND ACTIVATION VIA MBBANK)
+// ==========================================================================
+
+const PAYMENT_EXEMPT_EMAILS = [
+  'thngan09052k5@gmail.com',
+  'teome5575@gmail.com',
+  'nguyenngotuanhtk123@gmail.com'
+];
+
+function isUserPaymentExempt(email) {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return PAYMENT_EXEMPT_EMAILS.some(exempt => exempt.toLowerCase() === clean);
+}
+
+function checkAndEnforcePayment(user) {
+  if (!user) return true;
+  // Whitelist is permanently exempt and free
+  if (isUserPaymentExempt(user.email)) {
+    closePaymentModal();
+    return true;
+  }
+  // If user already completed payment
+  if (user.isPaid === true) {
+    closePaymentModal();
+    return true;
+  }
+  // Not paid and not exempt -> open payment paywall
+  openPaymentModal(user);
+  return false;
+}
+
+function openPaymentModal(user) {
+  if (!dom.paymentModal) return;
+  const uname = user.username || 'user';
+  const syntax = `BIO ${uname}`;
+
+  if (dom.payAccountNumber) dom.payAccountNumber.textContent = '0932543483';
+  if (dom.payAccountName) dom.payAccountName.textContent = 'NGUYEN NGO TU ANH';
+  if (dom.payBankName) dom.payBankName.textContent = 'MBBank (Ngân hàng TMCP Quân đội)';
+  if (dom.payAmount) dom.payAmount.textContent = '5.000 đ';
+  if (dom.paySyntax) dom.paySyntax.textContent = syntax;
+
+  if (dom.paymentQrImage) {
+    const vietQrUrl = `https://img.vietqr.io/image/MB-0932543483-compact2.png?amount=5000&addInfo=${encodeURIComponent(syntax)}&accountName=NGUYEN%20NGO%20TU%20ANH`;
+    dom.paymentQrImage.src = vietQrUrl;
+    dom.paymentQrImage.onerror = () => {
+      dom.paymentQrImage.src = '/assets/payment_qr.jpg';
+    };
+  }
+
+  dom.paymentModal.classList.remove('hidden-modal');
+}
+
+function closePaymentModal() {
+  if (dom.paymentModal) {
+    dom.paymentModal.classList.add('hidden-modal');
+  }
+}
+
+async function handleConfirmPayment() {
+  if (!currentUser) return;
+  showToast('Đang kiểm tra và kích hoạt tài khoản...');
+  if (dom.btnConfirmPaymentDone) {
+    dom.btnConfirmPaymentDone.disabled = true;
+    dom.btnConfirmPaymentDone.textContent = 'Đang kích hoạt...';
+  }
+
+  try {
+    const token = localStorage.getItem('biolink_token');
+    const res = await fetch('/api/payment/confirm', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        userId: currentUser.id,
+        username: currentUser.username,
+        email: currentUser.email,
+        transactionNote: `BIO ${currentUser.username}`
+      })
+    });
+    const data = await res.json();
+    if (dom.btnConfirmPaymentDone) {
+      dom.btnConfirmPaymentDone.disabled = false;
+      dom.btnConfirmPaymentDone.textContent = '✓ Tôi đã chuyển khoản thành công';
+    }
+
+    if (!data.success) {
+      alert(data.error || 'Kích hoạt chưa thành công. Vui lòng thử lại!');
+      return;
+    }
+
+    // Success! Update currentUser permanently
+    currentUser.isPaid = true;
+    currentUser.paidAt = data.user.paidAt || new Date().toISOString();
+    localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
+
+    closePaymentModal();
+    showToast('Kích hoạt tài khoản thành công! Cảm ơn bạn đã ủng hộ.');
+
+    if (currentUser.bioData) {
+      showMyPublicBio();
+    } else {
+      switchMainView('wizard');
+      goToStep(1);
+    }
+  } catch (err) {
+    if (dom.btnConfirmPaymentDone) {
+      dom.btnConfirmPaymentDone.disabled = false;
+      dom.btnConfirmPaymentDone.textContent = '✓ Tôi đã chuyển khoản thành công';
+    }
+    console.error('Lỗi xác nhận thanh toán:', err);
+    alert('Không thể kết nối đến máy chủ. Vui lòng thử lại sau!');
+  }
+}
+
 /* ==========================================================================
    WIZARD FLOW & STEP CONTROLLER
    ========================================================================== */
@@ -1851,6 +2019,12 @@ function renderWizardStep(step) {
    ========================================================================== */
 
 function switchMainView(viewName) {
+  if (viewName === 'wizard' || viewName === 'split') {
+    if (currentUser && !checkAndEnforcePayment(currentUser)) {
+      return;
+    }
+  }
+
   if (dom.navHomeBtn) dom.navHomeBtn.classList.remove('active');
   dom.navWizardBtn.classList.remove('active');
   dom.navSplitBtn.classList.remove('active');

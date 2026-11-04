@@ -58,6 +58,37 @@ function createEmailTransporter() {
   return null;
 }
 
+// =============================================================
+// PAYMENT CONFIGURATION & WHITELIST (5.000 VND ACTIVATION FEE)
+// =============================================================
+const PAYMENT_EXEMPT_EMAILS = [
+  'thngan09052k5@gmail.com',
+  'teome5575@gmail.com',
+  'nguyenngotuanhtk123@gmail.com'
+];
+
+function isUserPaymentExempt(email) {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return PAYMENT_EXEMPT_EMAILS.some(exempt => exempt.toLowerCase() === clean);
+}
+
+function checkUserPaidStatus(user) {
+  if (!user) return false;
+  if (isUserPaymentExempt(user.email)) return true;
+  return user.isPaid === true;
+}
+
+const PAYMENT_CONFIG = {
+  bank: 'MB',
+  bankName: 'MBBank (Ngân hàng TMCP Quân đội)',
+  accountNumber: '0932543483',
+  accountName: 'NGUYEN NGO TU ANH',
+  amount: 5000,
+  currency: 'VND',
+  qrImage: '/assets/payment_qr.jpg'
+};
+
 // Send Password Reset OTP Email
 async function sendResetEmail(toEmail, code, userName) {
   const transporter = createEmailTransporter();
@@ -161,7 +192,10 @@ if (!fs.existsSync(USERS_FILE)) {
 // Read & Write DB
 function getDatabase() {
   try {
-    const raw = fs.readFileSync(USERS_FILE, 'utf-8');
+    let raw = fs.readFileSync(USERS_FILE, 'utf-8');
+    if (raw.charCodeAt(0) === 0xFEFF) {
+      raw = raw.slice(1);
+    }
     const data = JSON.parse(raw);
     if (!data.users) data.users = [];
     if (!data.bios) data.bios = {};
@@ -351,6 +385,7 @@ const server = http.createServer(async (req, res) => {
         finalUsername = `${cleanUsername}_${Math.floor(Math.random() * 899 + 100)}`;
       }
 
+      const isExempt = isUserPaymentExempt(cleanEmail);
       const newUser = {
         id: `u_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         name: name.trim(),
@@ -361,6 +396,9 @@ const server = http.createServer(async (req, res) => {
         authProvider: "email",
         deviceIps: clientIp ? [clientIp] : [],
         lastIp: clientIp,
+        isPaid: isExempt,
+        isExempt: isExempt,
+        paidAt: isExempt ? new Date().toISOString() : null,
         createdAt: new Date().toISOString()
       };
 
@@ -414,7 +452,10 @@ const server = http.createServer(async (req, res) => {
           username: newUser.username,
           email: newUser.email,
           avatar: newUser.avatar,
-          bioData: newUser.bioData
+          bioData: newUser.bioData,
+          isPaid: checkUserPaidStatus(newUser),
+          isExempt: isUserPaymentExempt(newUser.email),
+          paidAt: newUser.paidAt || null
         },
         token
       }));
@@ -492,7 +533,10 @@ const server = http.createServer(async (req, res) => {
           username: user.username,
           email: user.email,
           avatar: user.avatar,
-          bioData: user.bioData
+          bioData: user.bioData,
+          isPaid: checkUserPaidStatus(user),
+          isExempt: isUserPaymentExempt(user.email),
+          paidAt: user.paidAt || null
         },
         token
       }));
@@ -546,6 +590,7 @@ const server = http.createServer(async (req, res) => {
 
         const username = cleanEmail.split('@')[0].replace(/[^a-z0-9_\-]/g, '') || `user_${Date.now()}`;
         const displayName = name && name !== 'Người dùng Google' ? name : (username.charAt(0).toUpperCase() + username.slice(1));
+        const isExempt = isUserPaymentExempt(cleanEmail);
         user = {
           id: `u_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           name: displayName,
@@ -556,6 +601,9 @@ const server = http.createServer(async (req, res) => {
           authProvider: 'google',
           deviceIps: clientIp ? [clientIp] : [],
           lastIp: clientIp,
+          isPaid: isExempt,
+          isExempt: isExempt,
+          paidAt: isExempt ? new Date().toISOString() : null,
           createdAt: new Date().toISOString()
         };
 
@@ -608,7 +656,10 @@ const server = http.createServer(async (req, res) => {
           username: user.username,
           email: user.email,
           avatar: user.avatar,
-          bioData: user.bioData || db.bios[user.username]
+          bioData: user.bioData || db.bios[user.username],
+          isPaid: checkUserPaidStatus(user),
+          isExempt: isUserPaymentExempt(user.email),
+          paidAt: user.paidAt || null
         },
         token
       }));
@@ -747,7 +798,10 @@ const server = http.createServer(async (req, res) => {
             username: user.username,
             email: user.email,
             avatar: user.avatar,
-            bioData: user.bioData || db.bios[user.username]
+            bioData: user.bioData || db.bios[user.username],
+            isPaid: checkUserPaidStatus(user),
+            isExempt: isUserPaymentExempt(user.email),
+            paidAt: user.paidAt || null
           }
         }));
         return;
@@ -756,6 +810,115 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: false, error: 'Chưa đăng nhập' }));
+    return;
+  }
+
+  // -------------------------------------------------------------
+  // API: PAYMENT & ACCOUNT ACTIVATION (5.000 VND MBBANK)
+  // -------------------------------------------------------------
+
+  // GET PAYMENT CONFIG & WHITELIST
+  if (pathname === '/api/payment/config' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      success: true,
+      config: PAYMENT_CONFIG,
+      exemptEmails: PAYMENT_EXEMPT_EMAILS
+    }));
+    return;
+  }
+
+  // GET PAYMENT STATUS FOR USER
+  if (pathname === '/api/payment/status' && req.method === 'GET') {
+    const rawTarget = (parsedUrl.searchParams.get('username') || parsedUrl.searchParams.get('email') || '').toLowerCase();
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const db = getDatabase();
+
+    let user = null;
+    if (token && db.sessions[token]) {
+      const sess = db.sessions[token];
+      user = db.users.find(u => u.id === sess.userId || u.email === sess.email);
+    }
+    if (!user && rawTarget) {
+      user = db.users.find(u => u.username.toLowerCase() === rawTarget || (u.email && u.email.toLowerCase() === rawTarget));
+    }
+
+    const isPaid = user ? checkUserPaidStatus(user) : false;
+    const isExempt = user ? isUserPaymentExempt(user.email) : false;
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      success: true,
+      isPaid,
+      isExempt,
+      paidAt: user?.paidAt || null
+    }));
+    return;
+  }
+
+  // CONFIRM PAYMENT DONE (ACTIVATES ACCOUNT PERMANENTLY)
+  if (pathname === '/api/payment/confirm' && req.method === 'POST') {
+    try {
+      const { userId, username, email, transactionNote } = await parseJsonBody(req);
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+      const db = getDatabase();
+
+      let user = null;
+      if (token && db.sessions[token]) {
+        const sess = db.sessions[token];
+        user = db.users.find(u => u.id === sess.userId || u.email === sess.email);
+      }
+      if (!user && (userId || username || email)) {
+        const uId = userId || '';
+        const uName = (username || '').toLowerCase();
+        const uEmail = (email || '').toLowerCase();
+        user = db.users.find(u => 
+          (uId && u.id === uId) ||
+          (uName && u.username.toLowerCase() === uName) ||
+          (uEmail && u.email.toLowerCase() === uEmail)
+        );
+      }
+
+      if (!user) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Không tìm thấy tài khoản để kích hoạt thanh toán!' }));
+        return;
+      }
+
+      // Mark user as paid permanently
+      user.isPaid = true;
+      user.paidAt = new Date().toISOString();
+      user.paymentTransaction = transactionNote || `BIO ${user.username}`;
+      saveDatabase(db);
+
+      try {
+        await dbLayer.updateUser(user.id, { isPaid: true, paidAt: user.paidAt });
+      } catch (errSync) {
+        console.warn('[MongoDB Sync] Payment update note:', errSync.message);
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        success: true,
+        message: 'Kích hoạt tài khoản Bio Link thành công! Bạn có thể sử dụng tất cả tính năng trên hệ thống.',
+        user: {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          avatar: user.avatar,
+          bioData: user.bioData || db.bios[user.username],
+          isPaid: true,
+          isExempt: isUserPaymentExempt(user.email),
+          paidAt: user.paidAt
+        }
+      }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
     return;
   }
 
@@ -868,8 +1031,19 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      // Update in corresponding user FIRST by email (or by username)
+      // Check payment activation requirement
       const user = db.users.find(u => (uemail && u.email.toLowerCase() === uemail) || (uname && u.username.toLowerCase() === uname));
+      if (user && !checkUserPaidStatus(user)) {
+        res.writeHead(402, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({
+          success: false,
+          requirePayment: true,
+          error: 'Tài khoản chưa hoàn tất kích hoạt (5.000 VNĐ). Vui lòng thanh toán để lưu và tạo trang Bio cá nhân!'
+        }));
+        return;
+      }
+
+      // Update in corresponding user FIRST by email (or by username)
       if (user) {
         if (uname && user.username.toLowerCase() !== uname) {
           const oldUname = user.username.toLowerCase();

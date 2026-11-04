@@ -1480,6 +1480,92 @@
     </div>
   </div>
 
+  <!-- PAYMENT MODAL (ACTIVATION FEE 5.000 VND VIA MBBANK QR) -->
+  <div id="paymentModal" class="modal-backdrop hidden-modal">
+    <div class="modal-card modal-payment-card">
+      <div class="modal-top-bar">
+        <div class="payment-title-group">
+          <div class="payment-badge-fee">Phí kích hoạt 5.000 VNĐ (Dùng trọn đời)</div>
+          <h3 class="modal-heading">Kích hoạt trang Bio của bạn</h3>
+          <p class="modal-subheading">Thanh toán 1 lần duy nhất để tạo trang cá nhân & sử dụng toàn bộ tính năng</p>
+        </div>
+      </div>
+
+      <div class="payment-body-layout">
+        <!-- QR Display Column -->
+        <div class="payment-qr-column">
+          <div class="payment-qr-frame">
+            <img id="paymentQrImage" src="/assets/payment_qr.jpg" alt="Mã VietQR MBBank" class="payment-qr-img">
+            <div class="qr-bank-brand">
+              <span class="qr-brand-tag">MBBank</span>
+              <span class="qr-brand-sub">VietQR Napas 247</span>
+            </div>
+          </div>
+          <p class="qr-scan-guide">Mở app Ngân hàng hoặc MoMo quét mã QR</p>
+        </div>
+
+        <!-- Bank Details Column -->
+        <div class="payment-info-column">
+          <div class="payment-detail-card">
+            <div class="detail-line">
+              <span class="detail-label">Ngân hàng</span>
+              <span class="detail-value" id="payBankName">MBBank (Ngân hàng TMCP Quân đội)</span>
+            </div>
+
+            <div class="detail-line">
+              <span class="detail-label">Chủ tài khoản</span>
+              <strong class="detail-value uppercase" id="payAccountName">NGUYEN NGO TU ANH</strong>
+            </div>
+
+            <div class="detail-line highlight">
+              <div class="detail-col">
+                <span class="detail-label">Số tài khoản</span>
+                <strong class="detail-value number" id="payAccountNumber">0932543483</strong>
+              </div>
+              <button type="button" class="btn-copy-chip" id="btnCopyAccountNum" title="Sao chép số tài khoản">
+                Sao chép
+              </button>
+            </div>
+
+            <div class="detail-line highlight">
+              <div class="detail-col">
+                <span class="detail-label">Số tiền</span>
+                <strong class="detail-value amount" id="payAmount">5.000 đ</strong>
+              </div>
+              <button type="button" class="btn-copy-chip" id="btnCopyAmount" title="Sao chép số tiền">
+                Sao chép
+              </button>
+            </div>
+
+            <div class="detail-line highlight note-line">
+              <div class="detail-col">
+                <span class="detail-label">Nội dung chuyển khoản (bắt buộc)</span>
+                <strong class="detail-value syntax" id="paySyntax">BIO username</strong>
+              </div>
+              <button type="button" class="btn-copy-chip" id="btnCopySyntax" title="Sao chép nội dung">
+                Sao chép
+              </button>
+            </div>
+          </div>
+
+          <div class="payment-alert-note">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>Vui lòng điền đúng <strong>nội dung chuyển khoản</strong> để hệ thống tự động kích hoạt vĩnh viễn cho tài khoản này.</span>
+          </div>
+
+          <button type="button" class="btn-gradient-submit btn-confirm-paid" id="btnConfirmPaymentDone">
+            ✓ Tôi đã chuyển khoản thành công
+          </button>
+
+          <div class="payment-footer-links">
+            <button type="button" class="btn-link-action" id="btnLogoutFromPayment">Đăng xuất / Đổi tài khoản khác</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div id="toastNotification" class="toast-popup hidden-toast">
     <div class="toast-icon">✓</div>
