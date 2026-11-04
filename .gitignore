@@ -33,3 +33,4 @@ bio_mobile/android/local.properties
 bio_mobile/android/app/build/
 bio_mobile/android/*.keystore
 bio_mobile/android/key.properties
+

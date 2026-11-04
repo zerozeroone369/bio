@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "node server.js",
     "dev:3001": "node -e \"process.env.PORT=3001; require('./server.js')\"",
+    "build": "npm install",
     "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "biolink",
