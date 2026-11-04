@@ -235,16 +235,38 @@ const dom = {
   authRequireBanner: document.getElementById('authRequireBanner'),
   authRequireBannerText: document.getElementById('authRequireBannerText'),
 
+  // Device remembered accounts
+  deviceRememberedBox: document.getElementById('deviceRememberedBox'),
+  deviceAccountsList: document.getElementById('deviceAccountsList'),
+
   // Google Modal
   googleAuthModal: document.getElementById('googleAuthModal'),
+  googleDeviceAccountsContainer: document.getElementById('googleDeviceAccountsContainer'),
   btnCancelGoogleAuth: document.getElementById('btnCancelGoogleAuth'),
-  btnChooseDefaultGoogle: document.getElementById('btnChooseDefaultGoogle'),
   btnToggleOtherGoogle: document.getElementById('btnToggleOtherGoogle'),
   otherGoogleForm: document.getElementById('otherGoogleForm'),
   customGoogleName: document.getElementById('customGoogleName'),
   customGoogleEmail: document.getElementById('customGoogleEmail'),
   customGooglePassword: document.getElementById('customGooglePassword'),
   btnConfirmOtherGoogle: document.getElementById('btnConfirmOtherGoogle'),
+
+  // Forgot Password
+  btnForgotPwd: document.getElementById('btnForgotPwd'),
+  forgotPasswordModal: document.getElementById('forgotPasswordModal'),
+  btnCloseForgotModal: document.getElementById('btnCloseForgotModal'),
+  forgotStepEmail: document.getElementById('forgotStepEmail'),
+  forgotEmailForm: document.getElementById('forgotEmailForm'),
+  forgotInputEmail: document.getElementById('forgotInputEmail'),
+  btnSendForgotOtp: document.getElementById('btnSendForgotOtp'),
+  forgotStepReset: document.getElementById('forgotStepReset'),
+  sentEmailLabel: document.getElementById('sentEmailLabel'),
+  forgotResetForm: document.getElementById('forgotResetForm'),
+  forgotOtpCode: document.getElementById('forgotOtpCode'),
+  forgotNewPassword: document.getElementById('forgotNewPassword'),
+  forgotConfirmNewPassword: document.getElementById('forgotConfirmNewPassword'),
+  btnConfirmResetPassword: document.getElementById('btnConfirmResetPassword'),
+  btnResendForgotOtp: document.getElementById('btnResendForgotOtp'),
+  btnBackToStep1: document.getElementById('btnBackToStep1'),
 
   // Toast
   toastNotification: document.getElementById('toastNotification'),
@@ -551,6 +573,7 @@ function openAuthModal(mode = 'login', reasonMessage = null) {
     dom.tabBtnRegister.classList.remove('active');
     dom.loginForm.classList.remove('hidden');
     dom.registerForm.classList.add('hidden');
+    renderDeviceSuggestedAccounts();
   }
   dom.authModal.classList.remove('hidden-modal');
 }
@@ -559,12 +582,142 @@ function closeAuthModal() {
   dom.authModal.classList.add('hidden-modal');
 }
 
+function rememberAccountOnDevice(userData) {
+  if (!userData || (!userData.email && !userData.username)) return;
+  try {
+    let accounts = JSON.parse(localStorage.getItem('biolink_known_accounts') || '[]');
+    if (!Array.isArray(accounts)) accounts = [];
+    accounts = accounts.filter(a => 
+      (a.email && userData.email && a.email.toLowerCase() !== userData.email.toLowerCase()) ||
+      (a.username && userData.username && a.username.toLowerCase() !== userData.username.toLowerCase())
+    );
+    accounts.unshift({
+      name: userData.name || userData.username,
+      username: userData.username,
+      email: userData.email,
+      avatar: userData.avatar || 'assets/avatar_abg.jpg'
+    });
+    if (accounts.length > 5) accounts = accounts.slice(0, 5);
+    localStorage.setItem('biolink_known_accounts', JSON.stringify(accounts));
+    renderDeviceSuggestedAccounts();
+  } catch (e) {}
+}
+
+async function renderDeviceSuggestedAccounts() {
+  let accounts = [];
+  try {
+    const local = JSON.parse(localStorage.getItem('biolink_known_accounts') || '[]');
+    if (Array.isArray(local)) accounts.push(...local);
+  } catch (e) {}
+
+  try {
+    const res = await fetch('/api/auth/suggested-accounts');
+    const data = await res.json();
+    if (data.success && Array.isArray(data.accounts)) {
+      for (const s of data.accounts) {
+        if (!accounts.some(a => (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) || (a.username && s.username && a.username.toLowerCase() === s.username.toLowerCase()))) {
+          accounts.push(s);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Cannot fetch suggested accounts from IP:', err);
+  }
+
+  // Deduplicate
+  const uniqueAccounts = [];
+  const seenKeys = new Set();
+  for (const acc of accounts) {
+    const key = (acc.email || acc.username || '').toLowerCase();
+    if (key && !seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniqueAccounts.push(acc);
+    }
+  }
+
+  // Render into login form
+  if (dom.deviceRememberedBox && dom.deviceAccountsList) {
+    if (uniqueAccounts.length > 0) {
+      dom.deviceRememberedBox.classList.remove('hidden');
+      dom.deviceAccountsList.innerHTML = uniqueAccounts.map(acc => `
+        <div class="device-account-chip" data-identifier="${acc.email || acc.username}">
+          <div class="device-acc-avatar">
+            ${acc.avatar ? `<img src="${acc.avatar}" alt="${acc.name}">` : `<span>${(acc.name || 'U').charAt(0).toUpperCase()}</span>`}
+          </div>
+          <div class="device-acc-info">
+            <span class="device-acc-name">${acc.name}</span>
+            <span class="device-acc-sub">${acc.email || ('@' + acc.username)}</span>
+          </div>
+          <span class="device-acc-badge">Máy này</span>
+        </div>
+      `).join('');
+
+      dom.deviceAccountsList.querySelectorAll('.device-account-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          dom.deviceAccountsList.querySelectorAll('.device-account-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          const idVal = chip.getAttribute('data-identifier');
+          dom.loginIdentifier.value = idVal;
+          dom.loginPassword.focus();
+          showToast('Vui lòng nhập mật khẩu tài khoản để đăng nhập an toàn.');
+        });
+      });
+    } else {
+      dom.deviceRememberedBox.classList.add('hidden');
+      dom.deviceAccountsList.innerHTML = '';
+    }
+  }
+
+  // Render into Google Modal
+  if (dom.googleDeviceAccountsContainer) {
+    if (uniqueAccounts.length > 0) {
+      dom.googleDeviceAccountsContainer.innerHTML = uniqueAccounts.map(acc => `
+        <button type="button" class="google-acc-item" data-email="${acc.email}" data-name="${acc.name}" data-avatar="${acc.avatar || ''}">
+          <div class="acc-avatar-circle">
+            <span>${(acc.name || 'G').charAt(0).toUpperCase()}</span>
+          </div>
+          <div class="acc-details">
+            <span class="acc-name">${acc.name}</span>
+            <span class="acc-email">${acc.email}</span>
+          </div>
+          <span class="acc-badge">Máy này</span>
+        </button>
+      `).join('');
+
+      dom.googleDeviceAccountsContainer.querySelectorAll('.google-acc-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const email = btn.getAttribute('data-email');
+          const name = btn.getAttribute('data-name');
+          const avatar = btn.getAttribute('data-avatar');
+          promptGooglePassword(email, name, avatar);
+        });
+      });
+    } else {
+      dom.googleDeviceAccountsContainer.innerHTML = '';
+    }
+  }
+}
+
+function promptGooglePassword(email, name, avatar) {
+  if (dom.otherGoogleForm) {
+    dom.otherGoogleForm.classList.remove('hidden');
+  }
+  if (dom.customGoogleEmail) dom.customGoogleEmail.value = email;
+  if (dom.customGoogleName) dom.customGoogleName.value = name;
+  if (dom.customGooglePassword) {
+    dom.customGooglePassword.value = '';
+    dom.customGooglePassword.focus();
+  }
+  showToast('Vui lòng nhập mật khẩu để xác nhận đăng nhập bằng tài khoản Google này!');
+}
+
 function loginUser(userData, token = null) {
   currentUser = userData;
   if (token) {
     localStorage.setItem('biolink_token', token);
   }
   localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
+  rememberAccountOnDevice(currentUser);
   updateAuthUI();
 
   // Reset memory state completely to this user's data (prevents cross-account contamination)
@@ -1003,11 +1156,42 @@ function bindEvents() {
   // Google OAuth Button
   dom.btnGoogleSignIn.addEventListener('click', openGoogleModal);
   dom.btnCancelGoogleAuth.addEventListener('click', closeGoogleModal);
-  dom.btnChooseDefaultGoogle.addEventListener('click', handleDefaultGoogleLogin);
-  dom.btnToggleOtherGoogle.addEventListener('click', () => {
-    dom.otherGoogleForm.classList.toggle('hidden');
-  });
-  dom.btnConfirmOtherGoogle.addEventListener('click', handleCustomGoogleLogin);
+  if (dom.btnToggleOtherGoogle) {
+    dom.btnToggleOtherGoogle.addEventListener('click', () => {
+      dom.otherGoogleForm.classList.toggle('hidden');
+    });
+  }
+  if (dom.btnConfirmOtherGoogle) {
+    dom.btnConfirmOtherGoogle.addEventListener('click', handleCustomGoogleLogin);
+  }
+
+  // Forgot Password Modal Events
+  if (dom.btnForgotPwd) {
+    dom.btnForgotPwd.addEventListener('click', (e) => {
+      e.preventDefault();
+      openForgotModal();
+    });
+  }
+  if (dom.btnCloseForgotModal) {
+    dom.btnCloseForgotModal.addEventListener('click', closeForgotModal);
+  }
+  if (dom.forgotEmailForm) {
+    dom.forgotEmailForm.addEventListener('submit', handleSendForgotOtp);
+  }
+  if (dom.forgotResetForm) {
+    dom.forgotResetForm.addEventListener('submit', handleResetPassword);
+  }
+  if (dom.btnResendForgotOtp) {
+    dom.btnResendForgotOtp.addEventListener('click', handleSendForgotOtp);
+  }
+  if (dom.btnBackToStep1) {
+    dom.btnBackToStep1.addEventListener('click', () => {
+      dom.forgotStepReset.classList.add('hidden');
+      dom.forgotStepEmail.classList.remove('hidden');
+      dom.forgotInputEmail.focus();
+    });
+  }
+
   if (dom.customGoogleEmail && dom.customGoogleName) {
     dom.customGoogleEmail.addEventListener('input', (e) => {
       const rawVal = e.target.value.trim();
@@ -1420,91 +1604,15 @@ async function handleRegisterFormSubmit(e) {
   }
 }
 
-// Google OAuth Modal simulation with password verification
+// Google OAuth Modal with strict password verification
 function openGoogleModal() {
+  closeAuthModal();
   dom.googleAuthModal.classList.remove('hidden-modal');
+  renderDeviceSuggestedAccounts();
 }
 
 function closeGoogleModal() {
   dom.googleAuthModal.classList.add('hidden-modal');
-}
-
-async function handleDefaultGoogleLogin() {
-  try {
-    const res = await fetch('/api/auth/google', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: 'teome5575@gmail.com',
-        name: 'Abg Creator',
-        avatar: 'assets/avatar_abg.jpg',
-        password: '123456'
-      })
-    });
-    const data = await res.json();
-    if (!data.success) {
-      showToast(data.error || 'Đăng nhập Google thất bại!');
-      return;
-    }
-
-    loginUser(data.user, data.token);
-    showMyPublicBio();
-    showToast(`Chào mừng trở lại, ${data.user.name}! Đã tải trang Bio của bạn.`);
-  } catch (err) {
-    console.warn('Lỗi kết nối máy chủ Google, tự động đăng nhập tài khoản lưu cục bộ:', err);
-    // Offline / Local fallback so the user is NEVER stuck with "Failed to fetch"
-    let fallbackUser = null;
-    const cachedUser = localStorage.getItem('biolink_current_user');
-    if (cachedUser) {
-      try {
-        const parsed = JSON.parse(cachedUser);
-        if (parsed && (parsed.email === 'teome5575@gmail.com' || parsed.username === 'abg')) {
-          fallbackUser = parsed;
-        }
-      } catch (e) {}
-    }
-
-    if (!fallbackUser) {
-      fallbackUser = {
-        id: "u_demo",
-        name: "Abg Creator",
-        username: "abg",
-        email: "teome5575@gmail.com",
-        avatar: "assets/avatar_abg.jpg",
-        authProvider: "google",
-        bioData: {
-          name: "Abg Creator",
-          username: "abg",
-          email: "teome5575@gmail.com",
-          bio: "Digital Artist & Tarot Creator ✨ Chào mừng bạn đến với thế giới của tôi!",
-          avatar: "assets/avatar_abg.jpg",
-          theme: "rainy_night",
-          links: [
-            { id: 1, title: "Fb", url: "https://facebook.com/abg" },
-            { id: 2, title: "Portfolio & Dự án mới", url: "https://behance.net" }
-          ],
-          socials: {
-            instagram: "https://instagram.com/abg",
-            tiktok: "https://tiktok.com/@abg",
-            youtube: "https://youtube.com/@abg",
-            facebook: "https://facebook.com/abg"
-          },
-          video: {
-            url: "",
-            name: "",
-            size: "",
-            overlay: 40,
-            blur: 0,
-            muted: true
-          }
-        }
-      };
-    }
-
-    loginUser(fallbackUser, "offline_token_abg");
-    showMyPublicBio();
-    showToast(`Chào mừng trở lại, ${fallbackUser.name}!`);
-  }
 }
 
 async function handleCustomGoogleLogin() {
@@ -1517,12 +1625,17 @@ async function handleCustomGoogleLogin() {
   const password = dom.customGooglePassword ? dom.customGooglePassword.value : '';
 
   if (!email || !email.includes('@')) {
-    showToast('Vui lòng nhập địa chỉ email hợp lệ!');
+    alert('Vui lòng nhập địa chỉ email @gmail.com hợp lệ!');
     return;
   }
 
-  const finalPassword = password || '123456';
+  if (!password) {
+    alert('Vui lòng nhập mật khẩu để bảo vệ và xác thực tài khoản!');
+    dom.customGooglePassword.focus();
+    return;
+  }
 
+  showToast('Đang xác thực bảo mật tài khoản...');
   try {
     const res = await fetch('/api/auth/google', {
       method: 'POST',
@@ -1530,42 +1643,162 @@ async function handleCustomGoogleLogin() {
       body: JSON.stringify({
         name,
         email,
-        password: finalPassword
+        password
       })
     });
     const data = await res.json();
     if (!data.success) {
-      showToast(data.error || 'Đăng nhập Google thất bại!');
+      alert(data.error || 'Đăng nhập Google thất bại!');
       return;
     }
 
     loginUser(data.user, data.token);
-    showMyPublicBio();
-    showToast(`Chào mừng ${data.user.name}! Đã kết nối trang Bio của bạn.`);
+    if (data.user.bioData) {
+      showMyPublicBio();
+    }
   } catch (err) {
-    console.warn('Lỗi kết nối máy chủ Google, kích hoạt chế độ cục bộ:', err);
-    const username = email.split('@')[0].replace(/[^a-z0-9_\-]/g, '') || `user_${Date.now()}`;
-    const fallbackUser = {
-      id: `u_${Date.now()}`,
-      name: name,
-      username: username,
-      email: email,
-      avatar: 'assets/avatar_abg.jpg',
-      authProvider: 'google',
-      bioData: {
-        name: name,
-        username: username,
-        email: email,
-        bio: `Chào mừng bạn đến với trang Bio của ${name}!`,
-        avatar: 'assets/avatar_abg.jpg',
-        theme: "rainy_night",
-        links: [],
-        socials: { instagram: "", tiktok: "", youtube: "", facebook: "" }
-      }
-    };
-    loginUser(fallbackUser, `offline_token_${username}`);
-    showMyPublicBio();
-    showToast(`Chào mừng ${fallbackUser.name}! (Chế độ lưu cục bộ)`);
+    console.error('Lỗi kết nối máy chủ Google:', err);
+    alert('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối!');
+  }
+}
+
+// ==========================================================================
+// FORGOT PASSWORD FLOW (EMAIL OTP VIA GMAIL)
+// ==========================================================================
+
+function openForgotModal() {
+  closeAuthModal();
+  closeGoogleModal();
+  if (dom.forgotPasswordModal) {
+    dom.forgotPasswordModal.classList.remove('hidden-modal');
+    dom.forgotStepEmail.classList.remove('hidden');
+    dom.forgotStepReset.classList.add('hidden');
+    if (dom.loginIdentifier && dom.loginIdentifier.value.includes('@')) {
+      dom.forgotInputEmail.value = dom.loginIdentifier.value;
+    }
+    dom.forgotInputEmail.focus();
+  }
+}
+
+function closeForgotModal() {
+  if (dom.forgotPasswordModal) {
+    dom.forgotPasswordModal.classList.add('hidden-modal');
+  }
+}
+
+async function handleSendForgotOtp(e) {
+  if (e) e.preventDefault();
+  const email = dom.forgotInputEmail.value.trim();
+  if (!email || !email.includes('@')) {
+    alert('Vui lòng nhập địa chỉ email hợp lệ!');
+    return;
+  }
+
+  showToast('Đang gửi mã xác thực về Gmail...');
+  if (dom.btnSendForgotOtp) {
+    dom.btnSendForgotOtp.disabled = true;
+    dom.btnSendForgotOtp.textContent = 'Đang xử lý...';
+  }
+
+  try {
+    const res = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (dom.btnSendForgotOtp) {
+      dom.btnSendForgotOtp.disabled = false;
+      dom.btnSendForgotOtp.textContent = 'Gửi mã xác thực về Gmail';
+    }
+
+    if (!data.success) {
+      alert(data.error || 'Không thể gửi mã xác thực. Vui lòng kiểm tra lại email!');
+      return;
+    }
+
+    // Switch to step 2
+    dom.forgotStepEmail.classList.add('hidden');
+    dom.forgotStepReset.classList.remove('hidden');
+    dom.sentEmailLabel.textContent = data.email || email;
+    dom.forgotOtpCode.value = '';
+    dom.forgotOtpCode.focus();
+
+    if (data.devCode) {
+      alert(`[Thử nghiệm]: Mã OTP đặt lại mật khẩu là ${data.devCode} (Đã ghi nhận trên máy chủ).`);
+    } else {
+      showToast('Đã gửi mã xác thực 6 số về Gmail của bạn!');
+    }
+  } catch (err) {
+    if (dom.btnSendForgotOtp) {
+      dom.btnSendForgotOtp.disabled = false;
+      dom.btnSendForgotOtp.textContent = 'Gửi mã xác thực về Gmail';
+    }
+    console.error('Forgot password error:', err);
+    alert('Lỗi kết nối máy chủ. Vui lòng thử lại sau!');
+  }
+}
+
+async function handleResetPassword(e) {
+  if (e) e.preventDefault();
+  const email = dom.sentEmailLabel.textContent.trim() || dom.forgotInputEmail.value.trim();
+  const code = dom.forgotOtpCode.value.trim();
+  const newPassword = dom.forgotNewPassword.value;
+  const confirmNewPassword = dom.forgotConfirmNewPassword.value;
+
+  if (!code || code.length !== 6) {
+    alert('Vui lòng nhập đầy đủ mã xác thực 6 chữ số!');
+    return;
+  }
+  if (!newPassword || newPassword.length < 6) {
+    alert('Mật khẩu mới phải có ít nhất 6 ký tự!');
+    return;
+  }
+  if (newPassword !== confirmNewPassword) {
+    alert('Mật khẩu xác nhận không khớp! Vui lòng nhập lại.');
+    return;
+  }
+
+  showToast('Đang đặt lại mật khẩu mới...');
+  if (dom.btnConfirmResetPassword) {
+    dom.btnConfirmResetPassword.disabled = true;
+    dom.btnConfirmResetPassword.textContent = 'Đang cập nhật...';
+  }
+
+  try {
+    const res = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        code,
+        newPassword
+      })
+    });
+    const data = await res.json();
+    if (dom.btnConfirmResetPassword) {
+      dom.btnConfirmResetPassword.disabled = false;
+      dom.btnConfirmResetPassword.textContent = 'Xác nhận đổi mật khẩu';
+    }
+
+    if (!data.success) {
+      alert(data.error || 'Đặt lại mật khẩu thất bại!');
+      return;
+    }
+
+    alert('Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới của bạn.');
+    closeForgotModal();
+    openAuthModal('login');
+    dom.loginIdentifier.value = email;
+    dom.loginPassword.value = '';
+    dom.loginPassword.focus();
+  } catch (err) {
+    if (dom.btnConfirmResetPassword) {
+      dom.btnConfirmResetPassword.disabled = false;
+      dom.btnConfirmResetPassword.textContent = 'Xác nhận đổi mật khẩu';
+    }
+    console.error('Reset password error:', err);
+    alert('Lỗi kết nối máy chủ. Vui lòng thử lại sau!');
   }
 }
 

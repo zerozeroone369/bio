@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const dbLayer = require('./db');
 
 let PORT = parseInt(process.env.PORT, 10) || 3000;
@@ -26,13 +27,94 @@ function hashPassword(pwd) {
   return crypto.createHash('sha256').update(pwd + SALT).digest('hex');
 }
 
+// Client IP Helper (Supports reverse proxies like Render / Cloudflare / Nginx)
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    const list = forwarded.split(',');
+    return list[0].trim();
+  }
+  let ip = req.socket?.remoteAddress || req.connection?.remoteAddress || '';
+  if (ip.startsWith('::ffff:')) {
+    ip = ip.replace('::ffff:', '');
+  }
+  return ip || '127.0.0.1';
+}
+
+// Nodemailer Gmail SMTP Transporter
+function createEmailTransporter() {
+  const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER || '';
+  const smtpPass = process.env.SMTP_PASS || process.env.GMAIL_PASS || process.env.GMAIL_APP_PASSWORD || '';
+
+  if (smtpUser && smtpPass) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: smtpUser,
+        pass: smtpPass
+      }
+    });
+  }
+  return null;
+}
+
+// Send Password Reset OTP Email
+async function sendResetEmail(toEmail, code, userName) {
+  const transporter = createEmailTransporter();
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; color: #1e293b;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h2 style="color: #6366f1; margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">bio</h2>
+        <p style="color: #64748b; font-size: 13px; margin: 4px 0 0 0;">Nền tảng Bio Link Cá Nhân Thế Hệ Mới</p>
+      </div>
+      <div style="background: #f8fafc; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <p style="margin: 0 0 12px 0; font-size: 15px;">Xin chào <strong>${userName || 'bạn'}</strong>,</p>
+        <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.5; color: #475569;">
+          Hệ thống nhận được yêu cầu đặt lại mật khẩu cho tài khoản Bio Link liên kết với địa chỉ email này.
+        </p>
+        <div style="text-align: center; margin: 24px 0;">
+          <span style="display: inline-block; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #4f46e5; background: #e0e7ff; padding: 12px 28px; border-radius: 10px; border: 1px dashed #6366f1;">
+            ${code}
+          </span>
+        </div>
+        <p style="margin: 0; font-size: 13px; color: #64748b; text-align: center;">
+          Mã xác thực có hiệu lực trong <strong>15 phút</strong>. Tuyệt đối không chia sẻ mã này cho bất kỳ ai.
+        </p>
+      </div>
+      <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">
+        Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này để đảm bảo an toàn cho tài khoản.
+      </p>
+    </div>
+  `;
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from: `"Bio Link Security" <${process.env.SMTP_USER || process.env.GMAIL_USER || 'no-reply@biolink.me'}>`,
+        to: toEmail,
+        subject: `[Bio Link] Mã xác thực đặt lại mật khẩu của bạn: ${code}`,
+        text: `Mã xác thực đặt lại mật khẩu Bio Link của bạn là: ${code}. Mã có hiệu lực trong 15 phút.`,
+        html: htmlContent
+      });
+      console.log(`[Email Sent] Password reset OTP sent to ${toEmail}`);
+      return { sent: true };
+    } catch (err) {
+      console.error('[Email Error] Failed to send email via SMTP:', err.message);
+      return { sent: false, error: err.message, devCode: code };
+    }
+  } else {
+    console.warn(`[Email Dev Mode] SMTP credentials not set. OTP for ${toEmail} is: ${code}`);
+    return { sent: false, devCode: code, note: 'SMTP_USER và SMTP_PASS chưa được cài đặt trong môi trường.' };
+  }
+}
+
 // Initial Database Setup
 if (!fs.existsSync(USERS_FILE)) {
   const initialUser = {
     id: "u_demo",
     name: "Abg",
     username: "abg",
-    email: "teome5575@gmail.com",
+    email: "creator@biolink.me",
     password: hashPassword("123456"),
     avatar: "assets/avatar_abg.jpg",
     authProvider: "email",
@@ -84,9 +166,10 @@ function getDatabase() {
     if (!data.users) data.users = [];
     if (!data.bios) data.bios = {};
     if (!data.sessions) data.sessions = {};
+    if (!data.passwordResets) data.passwordResets = {};
     return data;
   } catch (e) {
-    return { users: [], bios: {}, sessions: {} };
+    return { users: [], bios: {}, sessions: {}, passwordResets: {} };
   }
 }
 
@@ -208,6 +291,30 @@ const server = http.createServer(async (req, res) => {
   // API: AUTHENTICATION (REGISTER / LOGIN / GOOGLE / SESSION)
   // -------------------------------------------------------------
 
+  // SUGGESTED ACCOUNTS ON THIS DEVICE / IP
+  if (pathname === '/api/auth/suggested-accounts' && req.method === 'GET') {
+    const clientIp = getClientIp(req);
+    const db = getDatabase();
+    let matched = [];
+    if (clientIp) {
+      matched = db.users
+        .filter(u => Array.isArray(u.deviceIps) && u.deviceIps.includes(clientIp))
+        .map(u => ({
+          name: u.name,
+          username: u.username,
+          email: u.email,
+          avatar: u.avatar || 'assets/avatar_abg.jpg'
+        }));
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      success: true,
+      clientIp,
+      accounts: matched
+    }));
+    return;
+  }
+
   // REGISTER
   if (pathname === '/api/auth/register' && req.method === 'POST') {
     try {
@@ -224,6 +331,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      const clientIp = getClientIp(req);
       const cleanEmail = email.trim().toLowerCase();
       const cleanUsername = (username || name).trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '') || `user_${Date.now()}`;
 
@@ -251,6 +359,8 @@ const server = http.createServer(async (req, res) => {
         password: hashPassword(password),
         avatar: "assets/avatar_abg.jpg",
         authProvider: "email",
+        deviceIps: clientIp ? [clientIp] : [],
+        lastIp: clientIp,
         createdAt: new Date().toISOString()
       };
 
@@ -315,38 +425,44 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // LOGIN (WITH PASSWORD VERIFICATION)
+  // LOGIN (WITH STRICT PASSWORD VERIFICATION)
   if (pathname === '/api/auth/login' && req.method === 'POST') {
     try {
       const { email, password } = await parseJsonBody(req);
       if (!email || !password) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: false, error: 'Vui lòng nhập đầy đủ email và mật khẩu!' }));
+        res.end(JSON.stringify({ success: false, error: 'Vui lòng nhập đầy đủ email/tên người dùng và mật khẩu!' }));
         return;
       }
 
-      const cleanEmail = email.trim().toLowerCase();
+      const identifier = email.trim().toLowerCase();
+      const clientIp = getClientIp(req);
       const db = getDatabase();
-      const user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+      const user = db.users.find(u => 
+        (u.email && u.email.toLowerCase() === identifier) || 
+        (u.username && u.username.toLowerCase() === identifier)
+      );
 
       if (!user) {
         res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: false, error: 'Email chưa được đăng ký trong hệ thống!' }));
+        res.end(JSON.stringify({ success: false, error: 'Tài khoản không tồn tại trong hệ thống!' }));
         return;
       }
 
-      // Verify Password Hash
+      // Verify Password Hash strictly
       const inputHash = hashPassword(password);
-      if (user.password && user.password !== inputHash) {
+      if (!user.password || user.password !== inputHash) {
         res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: false, error: 'Mật khẩu không chính xác! Vui lòng thử lại.' }));
+        res.end(JSON.stringify({ success: false, error: 'Mật khẩu không chính xác! Vui lòng thử lại hoặc chọn Quên mật khẩu.' }));
         return;
       }
 
-      // If user had no password yet, set it now
-      if (!user.password) {
-        user.password = inputHash;
+      // Remember client IP on device
+      if (!Array.isArray(user.deviceIps)) user.deviceIps = [];
+      if (clientIp && !user.deviceIps.includes(clientIp)) {
+        user.deviceIps.push(clientIp);
       }
+      user.lastIp = clientIp;
 
       // Ensure user has bioData
       if (!user.bioData) {
@@ -387,7 +503,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GOOGLE LOGIN (WITH PASSWORD PROTECTION)
+  // GOOGLE LOGIN (WITH STRICT PASSWORD VERIFICATION)
   if (pathname === '/api/auth/google' && req.method === 'POST') {
     try {
       let { email, name, avatar, password } = await parseJsonBody(req);
@@ -397,18 +513,14 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      const clientIp = getClientIp(req);
       const cleanEmail = email.trim().toLowerCase();
       const db = getDatabase();
       let user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
 
-      // Auto-supply default password for demo account if missing
-      if (user && (user.id === 'u_demo' || cleanEmail === 'teome5575@gmail.com') && !password) {
-        password = '123456';
-      }
-
-      // If account exists and has password, require password to match
+      // If account exists and has password, ALWAYS require valid password
       if (user && user.password) {
-        if (!password && user.authProvider !== 'google') {
+        if (!password) {
           res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({
             success: false,
@@ -417,15 +529,21 @@ const server = http.createServer(async (req, res) => {
           }));
           return;
         }
-        if (password && hashPassword(password) !== user.password) {
+        if (hashPassword(password) !== user.password) {
           res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ success: false, error: 'Mật khẩu bảo mật không chính xác!' }));
           return;
         }
       }
 
-      // If new Google user, create user
+      // If new Google user, create user with password
       if (!user) {
+        if (!password || password.length < 6) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: 'Vui lòng thiết lập mật khẩu tối thiểu 6 ký tự để bảo vệ tài khoản Google của bạn!' }));
+          return;
+        }
+
         const username = cleanEmail.split('@')[0].replace(/[^a-z0-9_\-]/g, '') || `user_${Date.now()}`;
         const displayName = name && name !== 'Người dùng Google' ? name : (username.charAt(0).toUpperCase() + username.slice(1));
         user = {
@@ -433,9 +551,11 @@ const server = http.createServer(async (req, res) => {
           name: displayName,
           username: username,
           email: cleanEmail,
-          password: password ? hashPassword(password) : hashPassword('123456'),
+          password: hashPassword(password),
           avatar: avatar || 'assets/avatar_abg.jpg',
           authProvider: 'google',
+          deviceIps: clientIp ? [clientIp] : [],
+          lastIp: clientIp,
           createdAt: new Date().toISOString()
         };
 
@@ -465,6 +585,13 @@ const server = http.createServer(async (req, res) => {
         user.bioData = defaultBio;
         db.users.push(user);
         db.bios[username.toLowerCase()] = defaultBio;
+      } else {
+        // Existing user logged in successfully: remember IP
+        if (!Array.isArray(user.deviceIps)) user.deviceIps = [];
+        if (clientIp && !user.deviceIps.includes(clientIp)) {
+          user.deviceIps.push(clientIp);
+        }
+        user.lastIp = clientIp;
       }
 
       const token = crypto.randomBytes(24).toString('hex');
@@ -484,6 +611,115 @@ const server = http.createServer(async (req, res) => {
           bioData: user.bioData || db.bios[user.username]
         },
         token
+      }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
+  // FORGOT PASSWORD: REQUEST OTP VIA GMAIL
+  if (pathname === '/api/auth/forgot-password' && req.method === 'POST') {
+    try {
+      const { email } = await parseJsonBody(req);
+      if (!email) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Vui lòng nhập địa chỉ email của bạn!' }));
+        return;
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      const db = getDatabase();
+      const user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+
+      if (!user) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Không tìm thấy tài khoản với địa chỉ email này!' }));
+        return;
+      }
+
+      // Generate 6-digit OTP code
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      if (!db.passwordResets) db.passwordResets = {};
+      db.passwordResets[cleanEmail] = {
+        code: otpCode,
+        expires: Date.now() + 15 * 60 * 1000 // 15 minutes validity
+      };
+      saveDatabase(db);
+
+      const emailResult = await sendResetEmail(cleanEmail, otpCode, user.name);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        success: true,
+        message: 'Mã xác thực 6 số đã được gửi về Gmail của bạn! Vui lòng kiểm tra hộp thư đến (hoặc thư rác Spam).',
+        email: cleanEmail,
+        devCode: emailResult.devCode || null
+      }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
+  // RESET PASSWORD: VERIFY OTP & UPDATE PASSWORD
+  if (pathname === '/api/auth/reset-password' && req.method === 'POST') {
+    try {
+      const { email, code, newPassword } = await parseJsonBody(req);
+      if (!email || !code || !newPassword) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Vui lòng nhập đầy đủ email, mã xác thực và mật khẩu mới!' }));
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Mật khẩu mới phải có ít nhất 6 ký tự!' }));
+        return;
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      const db = getDatabase();
+      const resetRecord = db.passwordResets && db.passwordResets[cleanEmail];
+
+      if (!resetRecord) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Yêu cầu không hợp lệ hoặc bạn chưa yêu cầu mã xác thực!' }));
+        return;
+      }
+
+      if (Date.now() > resetRecord.expires) {
+        delete db.passwordResets[cleanEmail];
+        saveDatabase(db);
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Mã xác thực đã hết hạn (quá 15 phút). Vui lòng yêu cầu mã mới!' }));
+        return;
+      }
+
+      if (resetRecord.code !== code.trim()) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Mã xác thực không chính xác! Vui lòng kiểm tra lại Gmail của bạn.' }));
+        return;
+      }
+
+      const user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+      if (!user) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: 'Không tìm thấy người dùng!' }));
+        return;
+      }
+
+      // Update password with hash
+      user.password = hashPassword(newPassword);
+      delete db.passwordResets[cleanEmail];
+      saveDatabase(db);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        success: true,
+        message: 'Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới ngay bây giờ.'
       }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });

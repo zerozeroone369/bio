@@ -71,7 +71,7 @@
       <!-- User Profile Menu (When Logged In) -->
       <div class="user-profile-menu-container" id="userProfileContainer">
         <div class="user-profile-menu" id="userProfileBtn">
-          <span class="user-email-text" id="headerUserEmail">teome5575@gmail.com</span>
+          <span class="user-email-text" id="headerUserEmail">Tài khoản</span>
           <div class="user-avatar-mini" id="headerAvatarMini">
             <img id="headerAvatarImg" src="assets/avatar_abg.jpg" alt="Avatar" class="avatar-mini-img">
           </div>
@@ -81,9 +81,9 @@
         <!-- User Dropdown Menu -->
         <div id="userProfileDropdown" class="profile-dropdown-menu hidden-dropdown">
           <div class="dropdown-user-header">
-            <span class="dropdown-name" id="dropdownUserName">Abg</span>
-            <span class="dropdown-email" id="dropdownUserEmail">teome5575@gmail.com</span>
-            <span class="dropdown-slug-badge" id="dropdownUserSlug">biolink.me/abg</span>
+            <span class="dropdown-name" id="dropdownUserName">Người dùng</span>
+            <span class="dropdown-email" id="dropdownUserEmail"></span>
+            <span class="dropdown-slug-badge" id="dropdownUserSlug"></span>
           </div>
           <div class="dropdown-divider"></div>
           <a href="#" class="dropdown-item" id="dropdownMyBioLink">
@@ -461,7 +461,7 @@
               <span class="bio-logo-text">bio</span>
               <span class="bio-logo-sparkle"></span>
             </div>
-            <p class="footer-slogan">Nền tảng Bio Link thế hệ mới với video nền tùy chọn từ máy tính và âm thanh cảm xúc.</p>
+            <p class="footer-slogan">web do tú anh sáng tạo CẢM ƠN ĐÃ ỦNG HỘ</p>
           </div>
           <div class="footer-links-group">
             <div class="footer-col">
@@ -479,7 +479,7 @@
           </div>
         </div>
         <div class="footer-bottom-row">
-          <span>© 2026 <strong>bio</strong>. Mọi quyền được bảo lưu.</span>
+          <span>web do tú anh sáng tạo CẢM ƠN ĐÃ ỦNG HỘ</span>
           <span class="footer-status-tag">● Tất cả hệ thống đang hoạt động tối ưu</span>
         </div>
       </footer>
@@ -1272,9 +1272,20 @@
 
         <!-- FORM: ĐĂNG NHẬP (SIGN IN) -->
         <form id="loginForm" class="auth-form-view">
+          <!-- GỢI Ý TÀI KHOẢN TRÊN THIẾT BỊ / IP NÀY -->
+          <div id="deviceRememberedBox" class="device-remembered-box hidden">
+            <div class="device-box-header">
+              <span class="device-box-title">Tài khoản trên thiết bị này</span>
+              <span class="device-box-hint">Nhấp để chọn & nhập mật khẩu</span>
+            </div>
+            <div id="deviceAccountsList" class="device-accounts-list">
+              <!-- Render động tài khoản trên máy này -->
+            </div>
+          </div>
+
           <div class="form-group-floating">
             <label class="input-label">Email hoặc Tên người dùng</label>
-            <input type="text" id="loginIdentifier" class="input-modern" placeholder="teome5575@gmail.com hoặc abg" required>
+            <input type="text" id="loginIdentifier" class="input-modern" placeholder="Email hoặc Tên người dùng..." required>
           </div>
 
           <div class="form-group-floating">
@@ -1369,17 +1380,10 @@
       </div>
 
       <div class="google-account-list">
-        <!-- Default Account from Screenshot 122645 -->
-        <button type="button" class="google-acc-item" id="btnChooseDefaultGoogle">
-          <div class="acc-avatar-circle">
-            <span>T</span>
-          </div>
-          <div class="acc-details">
-            <span class="acc-name">Abg Creator</span>
-            <span class="acc-email">teome5575@gmail.com</span>
-          </div>
-          <span class="acc-badge">Đã lưu</span>
-        </button>
+        <!-- Dynamic accounts remembered on this device / IP -->
+        <div id="googleDeviceAccountsContainer" class="google-device-accounts-container">
+          <!-- Populated dynamically if this device has accounts -->
+        </div>
 
         <!-- Custom Google Account input toggle -->
         <button type="button" class="google-acc-item add-account" id="btnToggleOtherGoogle">
@@ -1388,7 +1392,7 @@
           </div>
           <div class="acc-details">
             <span class="acc-name">Sử dụng tài khoản Google khác</span>
-            <span class="acc-email">Nhập email @gmail.com của bạn</span>
+            <span class="acc-email">Nhập email @gmail.com & mật khẩu</span>
           </div>
         </button>
 
@@ -1396,7 +1400,7 @@
         <div id="otherGoogleForm" class="other-google-form hidden">
           <input type="text" id="customGoogleName" class="input-modern" placeholder="Họ và tên của bạn (Ví dụ: Tuấn Anh)...">
           <input type="email" id="customGoogleEmail" class="input-modern" placeholder="your_email@gmail.com" style="margin-top: 8px;">
-          <input type="password" id="customGooglePassword" class="input-modern" placeholder="Mật khẩu bảo vệ tài khoản (tối thiểu 6 ký tự)..." style="margin-top: 8px;">
+          <input type="password" id="customGooglePassword" class="input-modern" placeholder="Mật khẩu bảo vệ tài khoản (bắt buộc)..." style="margin-top: 8px;">
           <button type="button" class="btn-gradient-submit" id="btnConfirmOtherGoogle" style="margin-top: 10px; padding: 10px;">Xác nhận đăng nhập & Bảo mật</button>
         </div>
       </div>
@@ -1405,6 +1409,74 @@
         <p class="google-notice">Bio Link chỉ chia sẻ tên, địa chỉ email và ảnh hồ sơ công khai của bạn với sự đồng ý của bạn.</p>
         <button type="button" class="btn-cancel-google" id="btnCancelGoogleAuth">Hủy</button>
       </div>
+    </div>
+  </div>
+
+  <!-- FORGOT PASSWORD MODAL (EMAIL VERIFICATION & RESET VIA GMAIL) -->
+  <div id="forgotPasswordModal" class="modal-backdrop hidden-modal">
+    <div class="modal-card modal-auth-card">
+      <div class="modal-top-bar">
+        <h3 class="modal-heading">Khôi phục mật khẩu</h3>
+        <button type="button" class="btn-close-modal" id="btnCloseForgotModal" title="Đóng">✕</button>
+      </div>
+
+      <!-- STEP 1: Enter Registered Email -->
+      <div id="forgotStepEmail" class="forgot-step-block">
+        <p class="forgot-instruction">
+          Nhập địa chỉ email tài khoản của bạn. Hệ thống Bio Link sẽ gửi mã xác thực bảo mật 6 chữ số đến Gmail để bạn tạo mật khẩu mới an toàn.
+        </p>
+
+        <form id="forgotEmailForm">
+          <div class="form-group-floating">
+            <label class="input-label">Địa chỉ Email đã đăng ký</label>
+            <input type="email" id="forgotInputEmail" class="input-modern" placeholder="name@example.com hoặc your_email@gmail.com" required>
+          </div>
+          <button type="submit" class="btn-gradient-submit" id="btnSendForgotOtp" style="margin-top: 14px;">
+            Gửi mã xác thực về Gmail
+          </button>
+        </form>
+      </div>
+
+      <!-- STEP 2: Enter OTP & New Password -->
+      <div id="forgotStepReset" class="forgot-step-block hidden">
+        <div class="otp-sent-banner">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span>Mã xác thực đã được gửi đến: <strong id="sentEmailLabel"></strong></span>
+        </div>
+
+        <form id="forgotResetForm">
+          <div class="form-group-floating">
+            <label class="input-label">Mã xác thực 6 số (OTP)</label>
+            <input type="text" id="forgotOtpCode" class="input-modern otp-input" placeholder="Ví dụ: 839201" maxlength="6" required pattern="[0-9]{6}">
+          </div>
+
+          <div class="form-group-floating">
+            <label class="input-label">Mật khẩu mới</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="forgotNewPassword" class="input-modern" placeholder="Tối thiểu 6 ký tự..." required minlength="6">
+              <button type="button" class="btn-toggle-eye" data-target="forgotNewPassword">👁</button>
+            </div>
+          </div>
+
+          <div class="form-group-floating">
+            <label class="input-label">Xác nhận mật khẩu mới</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="forgotConfirmNewPassword" class="input-modern" placeholder="Nhập lại mật khẩu mới..." required minlength="6">
+              <button type="button" class="btn-toggle-eye" data-target="forgotConfirmNewPassword">👁</button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-gradient-submit" id="btnConfirmResetPassword" style="margin-top: 14px;">
+            Xác nhận đổi mật khẩu
+          </button>
+
+          <div class="forgot-sub-actions">
+            <button type="button" class="btn-link-action" id="btnResendForgotOtp">Gửi lại mã</button>
+            <button type="button" class="btn-link-action" id="btnBackToStep1">Nhập email khác</button>
+          </div>
+        </form>
+      </div>
+
     </div>
   </div>
 
