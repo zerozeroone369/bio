@@ -175,6 +175,7 @@ const dom = {
   phoneUserBio: document.getElementById('phoneUserBio'),
   phoneLinksContainer: document.getElementById('phoneLinksContainer'),
   phoneSocialRow: document.getElementById('phoneSocialRow'),
+  btnWizardSaveBio: document.getElementById('btnWizardSaveBio'),
   btnOpenFullScreenBio: document.getElementById('btnOpenFullScreenBio'),
   btnCopyBioLink: document.getElementById('btnCopyBioLink'),
   btnShowQrCode: document.getElementById('btnShowQrCode'),
@@ -194,6 +195,7 @@ const dom = {
   publicSocialIconsRow: document.getElementById('publicSocialIconsRow'),
   publicLinksList: document.getElementById('publicLinksList'),
   btnExitPublicBio: document.getElementById('btnExitPublicBio'),
+  btnSavePublicBio: document.getElementById('btnSavePublicBio'),
   btnFloatingVideoUpload: document.getElementById('btnFloatingVideoUpload'),
   btnToggleAudio: document.getElementById('btnToggleAudio'),
   audioIconSvg: document.getElementById('audioIconSvg'),
@@ -202,6 +204,8 @@ const dom = {
   // Studio Split
   studioPaneContainer: document.getElementById('studioPaneContainer'),
   studioPhoneMockupSlot: document.getElementById('studioPhoneMockupSlot'),
+  btnStudioSaveBio: document.getElementById('btnStudioSaveBio'),
+  btnStudioViewBio: document.getElementById('btnStudioViewBio'),
 
   // Upgraded QR Modal
   qrModal: document.getElementById('qrModal'),
@@ -512,6 +516,20 @@ function resetStateToUser(user = null, bioData = null) {
 }
 
 function initAuthSystem() {
+  // Synchronous instant load from localStorage to ensure currentUser is ready immediately
+  const savedUserJson = localStorage.getItem('biolink_current_user');
+  if (savedUserJson) {
+    try {
+      currentUser = JSON.parse(savedUserJson);
+      if (currentUser && currentUser.bioData) {
+        resetStateToUser(currentUser, currentUser.bioData);
+      }
+      updateAuthUI();
+    } catch (e) {
+      currentUser = null;
+    }
+  }
+
   const token = localStorage.getItem('biolink_token');
   if (token) {
     // Verify token with server
@@ -522,6 +540,7 @@ function initAuthSystem() {
       .then(res => {
         if (res.success && res.user) {
           currentUser = res.user;
+          localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
           updateAuthUI();
 
           const params = new URLSearchParams(window.location.search);
@@ -532,6 +551,8 @@ function initAuthSystem() {
           if (!targetU || targetU.toLowerCase() === currentUser.username.toLowerCase()) {
             resetStateToUser(currentUser, currentUser.bioData);
             window.history.replaceState({ username: currentUser.username }, '', `/${encodeURIComponent(currentUser.username)}`);
+            applyTheme(currentUser.bioData ? currentUser.bioData.theme : state.theme, currentUser.bioData);
+            updatePublicBioView(currentUser.bioData, true);
           }
 
           // Check payment activation status
@@ -545,14 +566,8 @@ function initAuthSystem() {
       })
       .catch(() => {
         // Network fallback
-        const savedUserJson = localStorage.getItem('biolink_current_user');
-        if (savedUserJson) {
-          try {
-            currentUser = JSON.parse(savedUserJson);
-            resetStateToUser(currentUser, currentUser.bioData);
-          } catch (e) {
-            currentUser = null;
-          }
+        if (currentUser && currentUser.bioData) {
+          resetStateToUser(currentUser, currentUser.bioData);
         }
         updateAuthUI();
       });
@@ -818,19 +833,38 @@ function showMyPublicBio() {
   switchMainView('public');
 }
 
-function saveCurrentBioToUser() {
-  if (!currentUser) return;
-  const targetUsername = state.username || currentUser.username || 'user';
+async function saveCurrentBioToUserAsync(showSuccessFeedback = true, btnElem = null) {
+  if (!currentUser) {
+    openAuthModal('login', '🔒 Vui lòng đăng nhập để lưu thay đổi trang Bio của bạn!');
+    return false;
+  }
+
+  // Sync any active form inputs into state before saving
+  if (dom.userNameInput && dom.userNameInput.value) state.name = dom.userNameInput.value;
+  if (dom.userBioInput) state.bio = dom.userBioInput.value;
+  if (dom.userSlugInput && dom.userSlugInput.value) {
+    state.username = dom.userSlugInput.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  }
+
+  const studioName = document.getElementById('studioNameInput');
+  if (studioName && studioName.value) state.name = studioName.value;
+  const studioBio = document.getElementById('studioBioInput');
+  if (studioBio) state.bio = studioBio.value;
+
+  const targetUsername = (state.username || currentUser.username || 'user').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  state.username = targetUsername;
+
   const bioPayload = {
-    name: state.name,
+    name: state.name || currentUser.name || targetUsername,
     username: targetUsername,
     email: currentUser.email,
-    bio: state.bio,
-    avatar: state.avatar,
-    theme: state.theme,
-    links: state.links.map(l => ({
-      ...l,
-      url: normalizeExternalUrl(l.url)
+    bio: state.bio !== undefined ? state.bio : '',
+    avatar: state.avatar || currentUser.avatar || 'assets/avatar_abg.jpg',
+    theme: state.theme || 'rainy_night',
+    links: (state.links || []).map((l, i) => ({
+      id: l.id || (Date.now() + i),
+      title: (l.title || '').trim() || 'Liên kết',
+      url: normalizeExternalUrl(l.url || '#')
     })),
     socials: {
       instagram: normalizeExternalUrl(state.socials.instagram || ''),
@@ -842,23 +876,109 @@ function saveCurrentBioToUser() {
       url: state.video.url || "",
       name: state.video.name || "",
       size: state.video.size || "",
-      overlay: state.video.overlay,
-      blur: state.video.blur,
-      muted: state.video.muted
+      overlay: state.video.overlay !== undefined ? state.video.overlay : 40,
+      blur: state.video.blur !== undefined ? state.video.blur : 0,
+      muted: state.video.muted !== undefined ? state.video.muted : true
     }
   };
 
+  // Visual button spinner if button passed
+  let originalBtnHtml = '';
+  if (btnElem) {
+    originalBtnHtml = btnElem.innerHTML;
+    btnElem.disabled = true;
+    btnElem.innerHTML = `
+      <svg class="spin-animation" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+      <span>Đang lưu...</span>
+    `;
+  }
+
+  // Update in memory and local storage
   currentUser.username = targetUsername;
-  currentUser.name = state.name;
+  currentUser.name = bioPayload.name;
+  currentUser.avatar = bioPayload.avatar;
   currentUser.bioData = bioPayload;
   localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
 
-  // Sync to backend API immediately
-  fetch('/api/save-bio', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(bioPayload)
-  }).catch(err => console.error('Save bio error:', err));
+  // Sync to local database
+  const db = getUsersDatabase();
+  if (currentUser.email && db[currentUser.email.toLowerCase()]) {
+    db[currentUser.email.toLowerCase()].username = targetUsername;
+    db[currentUser.email.toLowerCase()].name = bioPayload.name;
+    db[currentUser.email.toLowerCase()].avatar = bioPayload.avatar;
+    db[currentUser.email.toLowerCase()].bioData = bioPayload;
+    saveUsersDatabase(db);
+  }
+
+  try {
+    const res = await fetch('/api/save-bio', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('biolink_token') || ''}`
+      },
+      body: JSON.stringify(bioPayload)
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      if (data.requirePayment) {
+        checkAndEnforcePayment(currentUser);
+      } else {
+        showToast(`❌ ${data.error || 'Lỗi khi lưu trang Bio'}`);
+      }
+      if (btnElem) {
+        btnElem.innerHTML = originalBtnHtml;
+        btnElem.disabled = false;
+      }
+      return false;
+    }
+
+    // Update Views
+    updatePublicBioView(bioPayload, true);
+    updatePhonePreview();
+
+    // Sync clean URL
+    const cleanUrl = `/${encodeURIComponent(targetUsername)}`;
+    if (window.location.pathname !== cleanUrl || window.location.search.includes('u=')) {
+      window.history.replaceState({ username: targetUsername }, '', cleanUrl);
+    }
+
+    // Update Slug & QR display
+    if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `/${targetUsername}`;
+    if (dom.slugDynamicText) dom.slugDynamicText.textContent = targetUsername;
+    if (dom.qrDisplayUrl) dom.qrDisplayUrl.textContent = `${window.location.origin}/${targetUsername}`;
+
+    if (btnElem) {
+      btnElem.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Đã lưu!</span>
+      `;
+      setTimeout(() => {
+        btnElem.innerHTML = originalBtnHtml;
+        btnElem.disabled = false;
+      }, 2000);
+    }
+
+    if (showSuccessFeedback) {
+      showToast(`✅ Đã lưu thay đổi thành công! Link Bio: /${targetUsername}`);
+    }
+    return true;
+  } catch (err) {
+    console.error('Save bio error:', err);
+    if (btnElem) {
+      btnElem.innerHTML = originalBtnHtml;
+      btnElem.disabled = false;
+    }
+    if (showSuccessFeedback) {
+      showToast('⚠️ Không thể kết nối máy chủ để lưu, dữ liệu đã lưu tạm vào máy của bạn.');
+    }
+    return false;
+  }
+}
+
+function saveCurrentBioToUser() {
+  saveCurrentBioToUserAsync(false).catch(() => {});
 }
 
 /* ==========================================================================
@@ -884,6 +1004,8 @@ function checkUrlParamsForPublicBio() {
     // If target matches current logged-in user, show their own bio
     if (currentUser && (currentUser.username.toLowerCase() === cleanTarget || currentUser.email.toLowerCase() === cleanTarget)) {
       resetStateToUser(currentUser, currentUser.bioData);
+      applyTheme(currentUser.bioData ? currentUser.bioData.theme : state.theme, currentUser.bioData);
+      updatePublicBioView(currentUser.bioData, true);
       switchMainView('public');
       const cleanUrl = `/${encodeURIComponent(currentUser.username)}`;
       if (window.location.pathname !== cleanUrl || window.location.search.includes('u=')) {
@@ -1417,13 +1539,19 @@ function bindEvents() {
     updatePublicBioView();
     saveCurrentBioToUser();
   });
-  dom.step4ContinueBtn.addEventListener('click', () => goToStep(5));
+  dom.step4ContinueBtn.addEventListener('click', () => {
+    saveCurrentBioToUser();
+    goToStep(5);
+  });
 
   // Step 5: Custom Links & Social Handles
   dom.addMoreLinkBtn.addEventListener('click', addNewLinkRow);
   bindCustomLinkInputs();
   bindSocialHandleInputs();
-  dom.step5ContinueBtn.addEventListener('click', () => goToStep(6));
+  dom.step5ContinueBtn.addEventListener('click', () => {
+    saveCurrentBioToUser();
+    goToStep(6);
+  });
 
   // Step 6: Custom Video Uploader & Theme Selector
   dom.videoDropArea.addEventListener('click', (e) => {
@@ -1496,9 +1624,31 @@ function bindEvents() {
       saveCurrentBioToUser();
     });
   });
-  dom.step6ContinueBtn.addEventListener('click', () => goToStep(7));
+  dom.step6ContinueBtn.addEventListener('click', () => {
+    saveCurrentBioToUser();
+    goToStep(7);
+  });
 
   // Step 7: Finish Actions
+  if (dom.btnWizardSaveBio) {
+    dom.btnWizardSaveBio.addEventListener('click', () => saveCurrentBioToUserAsync(true, dom.btnWizardSaveBio));
+  }
+  if (dom.btnSavePublicBio) {
+    dom.btnSavePublicBio.addEventListener('click', () => saveCurrentBioToUserAsync(true, dom.btnSavePublicBio));
+  }
+  if (dom.btnStudioSaveBio) {
+    dom.btnStudioSaveBio.addEventListener('click', () => saveCurrentBioToUserAsync(true, dom.btnStudioSaveBio));
+  }
+  if (dom.btnStudioViewBio) {
+    dom.btnStudioViewBio.addEventListener('click', () => {
+      if (currentUser) {
+        showMyPublicBio();
+      } else {
+        switchMainView('public');
+      }
+    });
+  }
+
   dom.btnOpenFullScreenBio.addEventListener('click', () => {
     if (currentUser) {
       showMyPublicBio();
@@ -3171,6 +3321,7 @@ function updatePublicBioView(bioData = null, isOwner = null) {
       `;
       dom.btnExitPublicBio.title = 'Quay lại trình chỉnh sửa';
       if (dom.btnFloatingVideoUpload) dom.btnFloatingVideoUpload.style.display = 'inline-flex';
+      if (dom.btnSavePublicBio) dom.btnSavePublicBio.style.display = 'inline-flex';
     } else {
       dom.btnExitPublicBio.innerHTML = `
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -3178,6 +3329,7 @@ function updatePublicBioView(bioData = null, isOwner = null) {
       `;
       dom.btnExitPublicBio.title = 'Về trang chủ';
       if (dom.btnFloatingVideoUpload) dom.btnFloatingVideoUpload.style.display = 'none';
+      if (dom.btnSavePublicBio) dom.btnSavePublicBio.style.display = 'none';
     }
   }
 

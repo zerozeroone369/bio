@@ -876,7 +876,7 @@ const server = http.createServer(async (req, res) => {
             username: user.username,
             email: user.email,
             avatar: user.avatar,
-            bioData: user.bioData || db.bios[user.username],
+            bioData: user.bioData || db.bios[user.username] || (user.username && db.bios[user.username.toLowerCase()]) || null,
             isPaid: checkUserPaidStatus(user),
             isExempt: isUserPaymentExempt(user.email),
             paidAt: user.paidAt || null
@@ -1066,8 +1066,21 @@ const server = http.createServer(async (req, res) => {
       const db = getDatabase();
       let bio = db.bios[rawTarget] || null;
       if (!bio) {
-        const u = db.users.find(usr => usr.username.toLowerCase() === rawTarget || (usr.email && usr.email.toLowerCase() === rawTarget));
+        for (const k in db.bios) {
+          if (k.toLowerCase() === rawTarget) {
+            bio = db.bios[k];
+            break;
+          }
+        }
+      }
+      if (!bio) {
+        const u = db.users.find(usr => (usr.username && usr.username.toLowerCase() === rawTarget) || (usr.email && usr.email.toLowerCase() === rawTarget));
         if (u && u.bioData) bio = u.bioData;
+      }
+      if (!bio) {
+        try {
+          bio = await dbLayer.getBioByUsername(rawTarget);
+        } catch (_) {}
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, bio }));
