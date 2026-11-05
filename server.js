@@ -253,10 +253,24 @@ function getDatabase() {
 
 function saveDatabase(data) {
   try {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2), 'utf8');
+    // Always write as UTF-8 Buffer to prevent any encoding corruption
+    const jsonStr = JSON.stringify(data, null, 2);
+    const buf = Buffer.from(jsonStr, 'utf8');
+    fs.writeFileSync(USERS_FILE, buf);
   } catch (err) {
     console.error('[DB Write Error]', err);
   }
+}
+
+// UTF-8 safe JSON response helper
+function sendJson(res, statusCode, obj) {
+  const jsonStr = JSON.stringify(obj);
+  const buf = Buffer.from(jsonStr, 'utf8');
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': buf.length
+  });
+  res.end(buf);
 }
 
 // Get Local IPv4 Address for QR Code
@@ -1144,10 +1158,12 @@ const server = http.createServer(async (req, res) => {
             freshBio = await dbLayer.getBioByUsername(user.username);
           } catch (_) {}
         }
-        const bioData = freshBio || user.bioData || db.bios[user.username] || (user.username && db.bios[user.username.toLowerCase()]) || null;
+        // Priority: MongoDB > db.bios[username] > user.bioData (most to least fresh)
+        const unameLower = (user.username || '').toLowerCase();
+        const bioData = freshBio || db.bios[unameLower] || db.bios[user.username] || user.bioData || null;
 
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({
+        res.end(Buffer.from(JSON.stringify({
           success: true,
           user: {
             id: user.id,
@@ -1160,7 +1176,7 @@ const server = http.createServer(async (req, res) => {
             isExempt: isUserPaymentExempt(user.email),
             paidAt: user.paidAt || null
           }
-        }));
+        }), 'utf8'));
         return;
       }
     }
@@ -1371,10 +1387,11 @@ const server = http.createServer(async (req, res) => {
         }
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true, bio }));
+      const responseObj = { success: true, bio };
+      res.end(Buffer.from(JSON.stringify(responseObj), 'utf8'));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: false, error: e.message }));
+      res.end(Buffer.from(JSON.stringify({ success: false, error: e.message }), 'utf8'));
     }
     return;
   }
@@ -1486,16 +1503,16 @@ const server = http.createServer(async (req, res) => {
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
+      res.end(Buffer.from(JSON.stringify({
         success: true,
         message: 'Đã lưu trang Bio thành công trên máy chủ!',
         username: uname,
         bio: payload
-      }));
+      }), 'utf8'));
       return;
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: false, error: e.message }));
+      res.end(Buffer.from(JSON.stringify({ success: false, error: e.message }), 'utf8'));
     }
     return;
   }

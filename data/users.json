@@ -12,60 +12,59 @@
       "bioData": {
         "name": "anh01",
         "username": "anh01",
-        "email": "teome5575@gmail.com",
         "bio": "Digital Artist & Tarot Creator ✨ Chào mừng bạn đến với thế giới của tôi!",
-        "avatar": "assets/avatar_anh01.jpg",
+        "avatar": "/uploads/avatars/avatar_anh01.jpg",
         "theme": "rainy_night",
         "links": [
           {
-            "id": 1793495879512,
+            "id": 1,
             "title": "Fb",
-            "url": "https://www.facebook.com/share/19kKLuVSZA/"
+            "url": "https://www.facebook.com/share/16cBe6GtSe/"
           },
           {
-            "id": 1793495879513,
+            "id": 2,
             "title": "threads",
-            "url": "https://threads.com/@tsu.anh.1"
+            "url": "https://threads.com/@tsu.anh.19"
           },
           {
-            "id": 1793495879514,
+            "id": 3,
             "title": "zalo",
-            "url": "https://zaloapp.com/qr/p/12ws6qeazczje"
+            "url": "https://zaloapp.com/qr/p/12ws6gzq96r9j"
           },
           {
-            "id": 1793495879515,
+            "id": 4,
             "title": "locket",
             "url": "https://locket.cam/anh00002"
           },
           {
-            "id": 1793495879516,
+            "id": 5,
             "title": "tt phụ",
             "url": "https://tiktok.com/@anh_0408"
           },
           {
-            "id": 1793495879517,
+            "id": 6,
             "title": "tt chính",
-            "url": "https://tiktok.com/@rwxy.sitn_01"
+            "url": "https://tiktok.com/@rwxy.sitn_"
           },
           {
-            "id": 1793495879518,
+            "id": 7,
             "title": "inta",
-            "url": "https://instagram.com/2005.nnta"
+            "url": "https://instagram.com/2005.nnt"
           }
         ],
         "socials": {
-          "instagram": "https://instagram.com/2005.nnta",
-          "tiktok": "https://tiktok.com/@rwxy.sitn_01",
+          "instagram": "https://instagram.com/2005.nnt",
+          "tiktok": "https://tiktok.com/@rwxy.sitn_",
           "youtube": "",
-          "facebook": "https://www.facebook.com/share/19kKLuVSZA/"
+          "facebook": "https://www.facebook.com/share/16cBe6GtSe/"
         },
         "video": {
-          "url": "",
+          "url": null,
           "name": "",
           "size": "",
           "overlay": 40,
           "blur": 0,
-          "muted": false
+          "muted": true
         }
       },
       "deviceIps": [
@@ -199,60 +198,59 @@
     "abg": {
       "name": "anh01",
       "username": "anh01",
-      "email": "teome5575@gmail.com",
       "bio": "Digital Artist & Tarot Creator ✨ Chào mừng bạn đến với thế giới của tôi!",
-      "avatar": "assets/avatar_anh01.jpg",
+      "avatar": "/uploads/avatars/avatar_anh01.jpg",
       "theme": "rainy_night",
       "links": [
         {
-          "id": 1793495879512,
+          "id": 1,
           "title": "Fb",
-          "url": "https://www.facebook.com/share/19kKLuVSZA/"
+          "url": "https://www.facebook.com/share/16cBe6GtSe/"
         },
         {
-          "id": 1793495879513,
+          "id": 2,
           "title": "threads",
-          "url": "https://threads.com/@tsu.anh.1"
+          "url": "https://threads.com/@tsu.anh.19"
         },
         {
-          "id": 1793495879514,
+          "id": 3,
           "title": "zalo",
-          "url": "https://zaloapp.com/qr/p/12ws6qeazczje"
+          "url": "https://zaloapp.com/qr/p/12ws6gzq96r9j"
         },
         {
-          "id": 1793495879515,
+          "id": 4,
           "title": "locket",
           "url": "https://locket.cam/anh00002"
         },
         {
-          "id": 1793495879516,
+          "id": 5,
           "title": "tt phụ",
           "url": "https://tiktok.com/@anh_0408"
         },
         {
-          "id": 1793495879517,
+          "id": 6,
           "title": "tt chính",
-          "url": "https://tiktok.com/@rwxy.sitn_01"
+          "url": "https://tiktok.com/@rwxy.sitn_"
         },
         {
-          "id": 1793495879518,
+          "id": 7,
           "title": "inta",
-          "url": "https://instagram.com/2005.nnta"
+          "url": "https://instagram.com/2005.nnt"
         }
       ],
       "socials": {
-        "instagram": "https://instagram.com/2005.nnta",
-        "tiktok": "https://tiktok.com/@rwxy.sitn_01",
+        "instagram": "https://instagram.com/2005.nnt",
+        "tiktok": "https://tiktok.com/@rwxy.sitn_",
         "youtube": "",
-        "facebook": "https://www.facebook.com/share/19kKLuVSZA/"
+        "facebook": "https://www.facebook.com/share/16cBe6GtSe/"
       },
       "video": {
-        "url": "",
+        "url": null,
         "name": "",
         "size": "",
         "overlay": 40,
         "blur": 0,
-        "muted": false
+        "muted": true
       }
     },
     "nguyenngan090525": {
@@ -343,119 +341,117 @@
     "anh01": {
       "name": "anh01",
       "username": "anh01",
-      "email": "teome5575@gmail.com",
       "bio": "Digital Artist & Tarot Creator ✨ Chào mừng bạn đến với thế giới của tôi!",
-      "avatar": "assets/avatar_anh01.jpg",
+      "avatar": "/uploads/avatars/avatar_anh01.jpg",
       "theme": "rainy_night",
       "links": [
         {
-          "id": 1793495879512,
+          "id": 1,
           "title": "Fb",
-          "url": "https://www.facebook.com/share/19kKLuVSZA/"
+          "url": "https://www.facebook.com/share/16cBe6GtSe/"
         },
         {
-          "id": 1793495879513,
+          "id": 2,
           "title": "threads",
-          "url": "https://threads.com/@tsu.anh.1"
+          "url": "https://threads.com/@tsu.anh.19"
         },
         {
-          "id": 1793495879514,
+          "id": 3,
           "title": "zalo",
-          "url": "https://zaloapp.com/qr/p/12ws6qeazczje"
+          "url": "https://zaloapp.com/qr/p/12ws6gzq96r9j"
         },
         {
-          "id": 1793495879515,
+          "id": 4,
           "title": "locket",
           "url": "https://locket.cam/anh00002"
         },
         {
-          "id": 1793495879516,
+          "id": 5,
           "title": "tt phụ",
           "url": "https://tiktok.com/@anh_0408"
         },
         {
-          "id": 1793495879517,
+          "id": 6,
           "title": "tt chính",
-          "url": "https://tiktok.com/@rwxy.sitn_01"
+          "url": "https://tiktok.com/@rwxy.sitn_"
         },
         {
-          "id": 1793495879518,
+          "id": 7,
           "title": "inta",
-          "url": "https://instagram.com/2005.nnta"
+          "url": "https://instagram.com/2005.nnt"
         }
       ],
       "socials": {
-        "instagram": "https://instagram.com/2005.nnta",
-        "tiktok": "https://tiktok.com/@rwxy.sitn_01",
+        "instagram": "https://instagram.com/2005.nnt",
+        "tiktok": "https://tiktok.com/@rwxy.sitn_",
         "youtube": "",
-        "facebook": "https://www.facebook.com/share/19kKLuVSZA/"
+        "facebook": "https://www.facebook.com/share/16cBe6GtSe/"
       },
       "video": {
-        "url": "",
+        "url": null,
         "name": "",
         "size": "",
         "overlay": 40,
         "blur": 0,
-        "muted": false
+        "muted": true
       }
     },
     "anh09": {
       "name": "anh01",
       "username": "anh01",
-      "email": "teome5575@gmail.com",
       "bio": "Digital Artist & Tarot Creator ✨ Chào mừng bạn đến với thế giới của tôi!",
-      "avatar": "assets/avatar_anh01.jpg",
+      "avatar": "/uploads/avatars/avatar_anh01.jpg",
       "theme": "rainy_night",
       "links": [
         {
-          "id": 1793495879512,
+          "id": 1,
           "title": "Fb",
-          "url": "https://www.facebook.com/share/19kKLuVSZA/"
+          "url": "https://www.facebook.com/share/16cBe6GtSe/"
         },
         {
-          "id": 1793495879513,
+          "id": 2,
           "title": "threads",
-          "url": "https://threads.com/@tsu.anh.1"
+          "url": "https://threads.com/@tsu.anh.19"
         },
         {
-          "id": 1793495879514,
+          "id": 3,
           "title": "zalo",
-          "url": "https://zaloapp.com/qr/p/12ws6qeazczje"
+          "url": "https://zaloapp.com/qr/p/12ws6gzq96r9j"
         },
         {
-          "id": 1793495879515,
+          "id": 4,
           "title": "locket",
           "url": "https://locket.cam/anh00002"
         },
         {
-          "id": 1793495879516,
+          "id": 5,
           "title": "tt phụ",
           "url": "https://tiktok.com/@anh_0408"
         },
         {
-          "id": 1793495879517,
+          "id": 6,
           "title": "tt chính",
-          "url": "https://tiktok.com/@rwxy.sitn_01"
+          "url": "https://tiktok.com/@rwxy.sitn_"
         },
         {
-          "id": 1793495879518,
+          "id": 7,
           "title": "inta",
-          "url": "https://instagram.com/2005.nnta"
+          "url": "https://instagram.com/2005.nnt"
         }
       ],
       "socials": {
-        "instagram": "https://instagram.com/2005.nnta",
-        "tiktok": "https://tiktok.com/@rwxy.sitn_01",
+        "instagram": "https://instagram.com/2005.nnt",
+        "tiktok": "https://tiktok.com/@rwxy.sitn_",
         "youtube": "",
-        "facebook": "https://www.facebook.com/share/19kKLuVSZA/"
+        "facebook": "https://www.facebook.com/share/16cBe6GtSe/"
       },
       "video": {
-        "url": "",
+        "url": null,
         "name": "",
         "size": "",
         "overlay": 40,
         "blur": 0,
-        "muted": false
+        "muted": true
       }
     },
     "testdev_7031": {

@@ -573,17 +573,41 @@ function initAuthSystem() {
           localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
           updateAuthUI();
 
-          const params = new URLSearchParams(window.location.search);
-          const uParam = params.get('u');
-          const pSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').replace(/^@/, '');
-          const targetU = uParam || pSlug;
-          // If no specific other user target in URL or URL matches current user
-          if (!targetU || targetU.toLowerCase() === currentUser.username.toLowerCase()) {
-            resetStateToUser(currentUser, currentUser.bioData);
-            window.history.replaceState({ username: currentUser.username }, '', `/${encodeURIComponent(currentUser.username)}`);
-            applyTheme(currentUser.bioData ? currentUser.bioData.theme : state.theme, currentUser.bioData);
-            updatePublicBioView(currentUser.bioData, true);
-          }
+          // ALWAYS fetch fresh bio from server to prevent stale localStorage data
+          const freshUsername = currentUser.username;
+          fetch(`/api/bio/${encodeURIComponent(freshUsername)}`)
+            .then(r => r.json())
+            .then(bioRes => {
+              if (bioRes.success && bioRes.bio) {
+                currentUser.bioData = bioRes.bio;
+                currentUser.username = bioRes.bio.username || freshUsername;
+                try { localStorage.setItem('biolink_current_user', JSON.stringify(currentUser)); } catch(_) {}
+                resetStateToUser(currentUser, bioRes.bio);
+                applyTheme(bioRes.bio.theme || 'rainy_night', bioRes.bio);
+                // Only update public view if currently on public page or user's own bio URL
+                const params2 = new URLSearchParams(window.location.search);
+                const uParam2 = params2.get('u');
+                const pSlug2 = window.location.pathname.replace(/^\/+|\/+$/g, '').replace(/^@/, '');
+                const targetU2 = uParam2 || pSlug2;
+                if (!targetU2 || targetU2.toLowerCase() === currentUser.username.toLowerCase() || targetU2.toLowerCase() === 'anh09') {
+                  window.history.replaceState({ username: currentUser.username }, '', `/${encodeURIComponent(currentUser.username)}`);
+                  updatePublicBioView(bioRes.bio, true);
+                }
+              } else if (currentUser.bioData) {
+                // Server not found, use cached but warn
+                resetStateToUser(currentUser, currentUser.bioData);
+                applyTheme(currentUser.bioData.theme || 'rainy_night', currentUser.bioData);
+                updatePublicBioView(currentUser.bioData, true);
+              }
+            })
+            .catch(() => {
+              // Network error fallback to cached data
+              if (currentUser && currentUser.bioData) {
+                resetStateToUser(currentUser, currentUser.bioData);
+                applyTheme(currentUser.bioData.theme || 'rainy_night', currentUser.bioData);
+                updatePublicBioView(currentUser.bioData, true);
+              }
+            });
 
           // Check payment activation status
           checkAndEnforcePayment(currentUser);
