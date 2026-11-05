@@ -378,10 +378,16 @@ function fetchNetworkInfo() {
    ========================================================================== */
 
 function getCleanDefaultBio(user = null) {
-  const fallbackUsername = user?.email ? user.email.split('@')[0].replace(/[^a-z0-9_\-]/g, '') : 'user';
-  const username = user?.username || fallbackUsername;
+  let fallbackUsername = user?.email ? user.email.split('@')[0].replace(/[^a-z0-9_\-]/g, '') : 'user';
+  if (user?.email && user.email.toLowerCase() === 'teome5575@gmail.com') {
+    fallbackUsername = 'anh01';
+  }
+  let username = user?.username || fallbackUsername;
+  if ((username === 'anh09' || username === 'abg') && user?.email && user.email.toLowerCase() === 'teome5575@gmail.com') {
+    username = 'anh01';
+  }
   const name = user?.name || (username.charAt(0).toUpperCase() + username.slice(1));
-  const avatar = user?.avatar || 'assets/avatar_abg.jpg';
+  const avatar = user?.avatar || 'assets/avatar_anh01.jpg';
 
   return {
     name: name,
@@ -420,8 +426,13 @@ function resetStateToUser(user = null, bioData = null) {
   state.name = src.name || defaults.name;
 
   let u = src.username || defaults.username;
-  // If user changed their name from default (e.g. to 'anh01') but slug is still 'abg', auto-upgrade slug!
-  if (state.name && state.name.toLowerCase() !== 'abg' && (!u || u === 'abg')) {
+  if (user?.email && user.email.toLowerCase() === 'teome5575@gmail.com') {
+    if (u === 'anh09' || u === 'abg' || !u) {
+      u = 'anh01';
+    }
+  }
+  // If user changed their name from default (e.g. to 'anh01') but slug is still 'abg' or 'anh09', auto-upgrade slug!
+  if (state.name && state.name.toLowerCase() !== 'abg' && (!u || u === 'abg' || u === 'anh09')) {
     const slugFromName = state.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_\-]/g, '');
     if (slugFromName) {
       u = slugFromName;
@@ -522,6 +533,18 @@ function initAuthSystem() {
   if (savedUserJson) {
     try {
       currentUser = JSON.parse(savedUserJson);
+      // Ensure teome5575@gmail.com is strictly anh01
+      if (currentUser && currentUser.email && currentUser.email.toLowerCase() === 'teome5575@gmail.com') {
+        if (currentUser.username === 'anh09' || currentUser.username === 'abg') {
+          currentUser.username = 'anh01';
+          currentUser.name = 'anh01';
+          if (currentUser.bioData) {
+            currentUser.bioData.username = 'anh01';
+            currentUser.bioData.name = 'anh01';
+          }
+          localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
+        }
+      }
       if (currentUser && currentUser.bioData) {
         resetStateToUser(currentUser, currentUser.bioData);
       }
@@ -541,6 +564,12 @@ function initAuthSystem() {
       .then(res => {
         if (res.success && res.user) {
           currentUser = res.user;
+          if (currentUser.email && currentUser.email.toLowerCase() === 'teome5575@gmail.com') {
+            if (currentUser.username === 'anh09' || currentUser.username === 'abg') {
+              currentUser.username = 'anh01';
+              currentUser.name = 'anh01';
+            }
+          }
           localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
           updateAuthUI();
 
@@ -955,8 +984,40 @@ async function saveCurrentBioToUserAsync(showSuccessFeedback = true, btnElem = n
     if (studioName && studioName.value) state.name = studioName.value.trim();
     const studioBio = document.getElementById('studioBioInput');
     if (studioBio) state.bio = studioBio.value;
+    const studioSlug = document.getElementById('studioSlugInput');
+    if (studioSlug && studioSlug.value) {
+      state.username = studioSlug.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    }
 
-    const targetUsername = (state.username || currentUser.username || 'user').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    // Sync links from studio or wizard if active
+    const studioLinksWrapper = document.getElementById('studioLinksWrapper');
+    if (studioLinksWrapper) {
+      const cards = studioLinksWrapper.querySelectorAll('.studio-link-card');
+      if (cards.length > 0) {
+        state.links = [];
+        cards.forEach((card, idx) => {
+          const titleInp = card.querySelector('.studio-link-title');
+          const urlInp = card.querySelector('.studio-link-url');
+          if (titleInp && urlInp) {
+            state.links.push({
+              id: parseInt(card.dataset.linkId, 10) || (Date.now() + idx),
+              title: titleInp.value.trim() || 'Liên kết',
+              url: normalizeExternalUrl(urlInp.value.trim() || '#')
+            });
+          }
+        });
+      }
+    } else if (dom.customLinksList && dom.customLinksList.querySelectorAll('.custom-link-row').length > 0) {
+      bindCustomLinkInputs();
+    }
+
+    let targetUsername = (state.username || currentUser.username || 'user').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    // Guarantee teome5575@gmail.com is strictly anh01
+    if (currentUser.email && currentUser.email.toLowerCase() === 'teome5575@gmail.com') {
+      if (!targetUsername || targetUsername === 'anh09' || targetUsername === 'abg') {
+        targetUsername = 'anh01';
+      }
+    }
     state.username = targetUsername;
 
     const bioPayload = {
@@ -1065,20 +1126,31 @@ async function saveCurrentBioToUserAsync(showSuccessFeedback = true, btnElem = n
       return false;
     }
 
+    // Update memory and local storage with response data
+    const savedBio = data.bio || bioPayload;
+    const finalUname = data.username || targetUsername;
+    currentUser.username = finalUname;
+    currentUser.name = savedBio.name;
+    if (savedBio.avatar) currentUser.avatar = savedBio.avatar;
+    currentUser.bioData = savedBio;
+    try {
+      localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
+    } catch (_) {}
+
     // Update Views
-    updatePublicBioView(bioPayload, true);
+    updatePublicBioView(savedBio, true);
     updatePhonePreview();
 
     // Sync clean URL
-    const cleanUrl = `/${encodeURIComponent(targetUsername)}`;
+    const cleanUrl = `/${encodeURIComponent(finalUname)}`;
     if (window.location.pathname !== cleanUrl || window.location.search.includes('u=')) {
-      window.history.replaceState({ username: targetUsername }, '', cleanUrl);
+      window.history.replaceState({ username: finalUname }, '', cleanUrl);
     }
 
     // Update Slug & QR display
-    if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `/${targetUsername}`;
-    if (dom.slugDynamicText) dom.slugDynamicText.textContent = targetUsername;
-    if (dom.qrDisplayUrl) dom.qrDisplayUrl.textContent = `${window.location.origin}/${targetUsername}`;
+    if (dom.step4SlugPreview) dom.step4SlugPreview.textContent = `/${finalUname}`;
+    if (dom.slugDynamicText) dom.slugDynamicText.textContent = finalUname;
+    if (dom.qrDisplayUrl) dom.qrDisplayUrl.textContent = `${window.location.origin}/${finalUname}`;
 
     if (btnElem) {
       btnElem.innerHTML = `
@@ -1120,59 +1192,73 @@ function checkUrlParamsForPublicBio() {
   const params = new URLSearchParams(window.location.search);
   const qUser = params.get('u') || params.get('user');
 
-  // Extract slug from clean pathname (e.g. /anh09 -> anh09)
+  // Extract slug from clean pathname (e.g. /anh01 -> anh01)
   let pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').replace(/^@/, '');
   if (pathSlug === 'index.html' || pathSlug === 'home' || pathSlug === 'wizard' || pathSlug === 'public') {
     pathSlug = '';
+  }
+
+  // Auto-redirect anh09 to anh01
+  if (pathSlug === 'anh09' || qUser === 'anh09') {
+    pathSlug = 'anh01';
+    window.history.replaceState({ username: 'anh01' }, '', '/anh01');
   }
 
   const targetUsername = qUser || pathSlug;
   const viewMode = params.get('view');
 
   if (targetUsername) {
-    const cleanTarget = targetUsername.toLowerCase();
+    let cleanTarget = targetUsername.toLowerCase();
+    if (cleanTarget === 'anh09') cleanTarget = 'anh01';
 
-    // If target matches current logged-in user, show their own bio
-    if (currentUser && (currentUser.username.toLowerCase() === cleanTarget || currentUser.email.toLowerCase() === cleanTarget)) {
-      resetStateToUser(currentUser, currentUser.bioData);
-      applyTheme(currentUser.bioData ? currentUser.bioData.theme : state.theme, currentUser.bioData);
-      updatePublicBioView(currentUser.bioData, true);
-      switchMainView('public');
-      const cleanUrl = `/${encodeURIComponent(currentUser.username)}`;
-      if (window.location.pathname !== cleanUrl || window.location.search.includes('u=')) {
-        window.history.replaceState({ username: currentUser.username }, '', cleanUrl);
-      }
-      return true;
-    }
+    const isCurrentUserTarget = currentUser && (
+      currentUser.username.toLowerCase() === cleanTarget || 
+      currentUser.email.toLowerCase() === cleanTarget ||
+      (cleanTarget === 'anh01' && currentUser.email.toLowerCase() === 'teome5575@gmail.com')
+    );
 
-    // Public visitor viewing someone else's bio:
-    // Strictly isolate public view: DO NOT touch currentUser, DO NOT remember account on this device!
+    // ALWAYS fetch fresh real-time bio from server to ensure latest edits are shown!
     fetch(`/api/bio/${encodeURIComponent(cleanTarget)}`)
       .then(r => r.json())
       .then(res => {
         if (res.success && res.bio) {
-          const finalSlug = res.bio.username || cleanTarget;
-          applyTheme(res.bio.theme || 'rainy_night', res.bio);
-          updatePublicBioView(res.bio, false);
+          const freshBio = res.bio;
+          const finalSlug = freshBio.username || cleanTarget;
+
+          if (isCurrentUserTarget) {
+            currentUser.username = finalSlug;
+            currentUser.bioData = freshBio;
+            try {
+              localStorage.setItem('biolink_current_user', JSON.stringify(currentUser));
+            } catch (_) {}
+            resetStateToUser(currentUser, freshBio);
+            applyTheme(freshBio.theme || 'rainy_night', freshBio);
+            updatePublicBioView(freshBio, true);
+          } else {
+            applyTheme(freshBio.theme || 'rainy_night', freshBio);
+            updatePublicBioView(freshBio, false);
+          }
+
           const cleanUrl = `/${encodeURIComponent(finalSlug)}`;
           if (window.location.pathname !== cleanUrl || window.location.search.includes('u=')) {
             window.history.replaceState({ username: finalSlug }, '', cleanUrl);
           }
         } else {
-          // Check local users fallback
-          const db = getUsersDatabase();
-          for (const email in db) {
-            if (db[email].username === cleanTarget && db[email].bioData) {
-              applyTheme(db[email].bioData.theme || 'rainy_night', db[email].bioData);
-              updatePublicBioView(db[email].bioData, false);
-              const cleanUrl = `/${encodeURIComponent(cleanTarget)}`;
-              window.history.replaceState({ username: cleanTarget }, '', cleanUrl);
-              break;
-            }
+          // If server bio not found, fallback to currentUser if matched
+          if (isCurrentUserTarget && currentUser.bioData) {
+            resetStateToUser(currentUser, currentUser.bioData);
+            applyTheme(currentUser.bioData ? currentUser.bioData.theme : state.theme, currentUser.bioData);
+            updatePublicBioView(currentUser.bioData, true);
           }
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (isCurrentUserTarget && currentUser && currentUser.bioData) {
+          resetStateToUser(currentUser, currentUser.bioData);
+          applyTheme(currentUser.bioData ? currentUser.bioData.theme : state.theme, currentUser.bioData);
+          updatePublicBioView(currentUser.bioData, true);
+        }
+      });
 
     // Automatically open Fullscreen Bio view for scanned QR visitors
     switchMainView('public');
@@ -3494,10 +3580,18 @@ function renderStudioPane(paneId) {
   if (!container) return;
 
   if (paneId === 'pane-profile') {
+    const curUname = state.username || currentUser?.username || 'anh01';
     container.innerHTML = `
       <div class="form-group-floating">
         <label class="input-label">Tên hiển thị</label>
         <input type="text" id="studioNameInput" class="input-modern" value="${escapeHtml(state.name)}">
+      </div>
+      <div class="form-group-floating">
+        <label class="input-label">Đường dẫn cá nhân (Bio Link: /${escapeHtml(curUname)})</label>
+        <div style="display: flex; align-items: center; background: #1a1c23; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); padding: 0 12px;">
+          <span style="color: var(--text-secondary); font-size: 13px; font-weight: 500;">/</span>
+          <input type="text" id="studioSlugInput" class="input-modern" style="border: none; background: transparent; padding: 10px 4px; font-weight: 700; color: #a78bfa;" value="${escapeHtml(curUname)}" placeholder="anh01">
+        </div>
       </div>
       <div class="form-group-floating">
         <label class="input-label">Tiểu sử (Bio)</label>
@@ -3515,6 +3609,18 @@ function renderStudioPane(paneId) {
       syncStudioPhoneClone();
       saveCurrentBioToUser();
     };
+    const slugInp = document.getElementById('studioSlugInput');
+    if (slugInp) {
+      slugInp.oninput = (e) => {
+        const cleanSlug = e.target.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+        state.username = cleanSlug;
+        if (currentUser) currentUser.username = cleanSlug;
+        updatePhonePreview();
+        updatePublicBioView();
+        syncStudioPhoneClone();
+        saveCurrentBioToUser();
+      };
+    }
     document.getElementById('studioBioInput').oninput = (e) => {
       state.bio = e.target.value;
       updatePhonePreview();
@@ -3533,21 +3639,40 @@ function renderStudioPane(paneId) {
     const wrapper = document.getElementById('studioLinksWrapper');
     state.links.forEach((link, idx) => {
       const card = document.createElement('div');
-      card.style.cssText = 'background: #1e2026; padding: 12px; border-radius: 12px; display: flex; flex-direction: column; gap: 8px;';
+      card.className = 'studio-link-card';
+      card.dataset.linkId = link.id || (Date.now() + idx);
+      card.style.cssText = 'background: #1e2026; padding: 12px; border-radius: 12px; display: flex; flex-direction: column; gap: 8px; border: 1px solid rgba(255,255,255,0.06); position: relative;';
       card.innerHTML = `
-        <input type="text" class="input-modern" style="padding: 8px 12px;" value="${escapeHtml(link.title)}" placeholder="Tên liên kết">
-        <input type="text" class="input-modern" style="padding: 8px 12px;" value="${escapeHtml(link.url)}" placeholder="URL">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 12px; color: var(--text-secondary); font-weight: 600;">Liên kết #${idx + 1}</span>
+          <button type="button" class="btn-delete-studio-link" title="Xóa liên kết này" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; border-radius: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+        <input type="text" class="input-modern studio-link-title" style="padding: 8px 12px;" value="${escapeHtml(link.title)}" placeholder="Tên liên kết (Ví dụ: Facebook, Zalo...)">
+        <input type="text" class="input-modern studio-link-url" style="padding: 8px 12px;" value="${escapeHtml(link.url)}" placeholder="Địa chỉ URL (https://...)">
       `;
-      const inputs = card.querySelectorAll('input');
-      inputs[0].oninput = (e) => {
+      const titleInput = card.querySelector('.studio-link-title');
+      const urlInput = card.querySelector('.studio-link-url');
+      const delBtn = card.querySelector('.btn-delete-studio-link');
+
+      titleInput.oninput = (e) => {
         state.links[idx].title = e.target.value;
         updatePhonePreview();
         updatePublicBioView();
         syncStudioPhoneClone();
         saveCurrentBioToUser();
       };
-      inputs[1].oninput = (e) => {
+      urlInput.oninput = (e) => {
         state.links[idx].url = e.target.value;
+        updatePhonePreview();
+        updatePublicBioView();
+        syncStudioPhoneClone();
+        saveCurrentBioToUser();
+      };
+      delBtn.onclick = () => {
+        state.links.splice(idx, 1);
+        renderStudioPane('pane-links');
         updatePhonePreview();
         updatePublicBioView();
         syncStudioPhoneClone();

@@ -252,7 +252,11 @@ function getDatabase() {
 }
 
 function saveDatabase(data) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[DB Write Error]', err);
+  }
 }
 
 // Get Local IPv4 Address for QR Code
@@ -288,11 +292,14 @@ const MIME_TYPES = {
 // Helper to read JSON request body
 function parseJsonBody(req) {
   return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
+    const chunks = [];
+    req.on('data', chunk => {
+      chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+    });
     req.on('end', () => {
       try {
-        resolve(body ? JSON.parse(body) : {});
+        const bodyStr = Buffer.concat(chunks).toString('utf8');
+        resolve(bodyStr ? JSON.parse(bodyStr) : {});
       } catch (e) {
         reject(e);
       }
@@ -1120,8 +1127,25 @@ const server = http.createServer(async (req, res) => {
 
     if (token && db.sessions[token] && db.sessions[token].expires > Date.now()) {
       const sess = db.sessions[token];
-      const user = db.users.find(u => u.id === sess.userId || u.email === sess.email);
+      const user = db.users.find(u => u.id === sess.userId || (u.email && u.email.toLowerCase() === sess.email?.toLowerCase()));
       if (user) {
+        // Guarantee username for teome5575@gmail.com is strictly anh01
+        if (user.email && user.email.toLowerCase() === 'teome5575@gmail.com') {
+          if (user.username !== 'anh01') {
+            user.username = 'anh01';
+            user.name = 'anh01';
+            saveDatabase(db);
+          }
+        }
+
+        let freshBio = null;
+        if (dbLayer.isMongoConnected() && user.username) {
+          try {
+            freshBio = await dbLayer.getBioByUsername(user.username);
+          } catch (_) {}
+        }
+        const bioData = freshBio || user.bioData || db.bios[user.username] || (user.username && db.bios[user.username.toLowerCase()]) || null;
+
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({
           success: true,
@@ -1131,7 +1155,7 @@ const server = http.createServer(async (req, res) => {
             username: user.username,
             email: user.email,
             avatar: user.avatar,
-            bioData: user.bioData || db.bios[user.username] || (user.username && db.bios[user.username.toLowerCase()]) || null,
+            bioData: bioData,
             isPaid: checkUserPaidStatus(user),
             isExempt: isUserPaymentExempt(user.email),
             paidAt: user.paidAt || null
@@ -1316,26 +1340,35 @@ const server = http.createServer(async (req, res) => {
   // API: GET USER BIO BY USERNAME OR EMAIL
   // -------------------------------------------------------------
   if (pathname.startsWith('/api/bio/')) {
-    const rawTarget = decodeURIComponent(pathname.replace('/api/bio/', '')).toLowerCase();
+    let rawTarget = decodeURIComponent(pathname.replace('/api/bio/', '')).toLowerCase();
+    // Redirect alias anh09 to anh01
+    if (rawTarget === 'anh09') rawTarget = 'anh01';
     try {
-      const db = getDatabase();
-      let bio = db.bios[rawTarget] || null;
-      if (!bio) {
-        for (const k in db.bios) {
-          if (k.toLowerCase() === rawTarget) {
-            bio = db.bios[k];
-            break;
-          }
-        }
-      }
-      if (!bio) {
-        const u = db.users.find(usr => (usr.username && usr.username.toLowerCase() === rawTarget) || (usr.email && usr.email.toLowerCase() === rawTarget));
-        if (u && u.bioData) bio = u.bioData;
-      }
-      if (!bio) {
+      let bio = null;
+
+      // 1. Check MongoDB first if connected for real-time fresh updates
+      if (dbLayer.isMongoConnected()) {
         try {
           bio = await dbLayer.getBioByUsername(rawTarget);
         } catch (_) {}
+      }
+
+      // 2. Local fallback
+      if (!bio) {
+        const db = getDatabase();
+        bio = db.bios[rawTarget] || null;
+        if (!bio) {
+          for (const k in db.bios) {
+            if (k.toLowerCase() === rawTarget) {
+              bio = db.bios[k];
+              break;
+            }
+          }
+        }
+        if (!bio) {
+          const u = db.users.find(usr => (usr.username && usr.username.toLowerCase() === rawTarget) || (usr.email && usr.email.toLowerCase() === rawTarget));
+          if (u && u.bioData) bio = u.bioData;
+        }
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, bio }));
@@ -1359,8 +1392,39 @@ const server = http.createServer(async (req, res) => {
       }
 
       const db = getDatabase();
-      const uname = (payload.username || '').toLowerCase();
+      let uname = (payload.username || '').toLowerCase();
       const uemail = (payload.email || '').toLowerCase();
+
+      // Authenticate via Bearer token if provided
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      let authUser = null;
+      if (token && db.sessions[token] && db.sessions[token].expires > Date.now()) {
+        const sess = db.sessions[token];
+        authUser = db.users.find(u => u.id === sess.userId || (u.email && u.email.toLowerCase() === sess.email?.toLowerCase()));
+      }
+
+      // Find target user
+      const targetUser = authUser || db.users.find(u => (uemail && u.email.toLowerCase() === uemail) || (uname && u.username.toLowerCase() === uname));
+
+      // Guarantee teome5575@gmail.com is strictly anh01
+      if ((targetUser && targetUser.email.toLowerCase() === 'teome5575@gmail.com') || uemail === 'teome5575@gmail.com') {
+        if (!uname || uname === 'anh09' || uname === 'abg') {
+          uname = 'anh01';
+          payload.username = 'anh01';
+        }
+      }
+
+      // Check payment activation requirement
+      if (targetUser && !checkUserPaidStatus(targetUser)) {
+        res.writeHead(402, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({
+          success: false,
+          requirePayment: true,
+          error: 'Tài khoản chưa hoàn tất kích hoạt (5.000 VNĐ). Vui lòng thanh toán để lưu và tạo trang Bio cá nhân!'
+        }));
+        return;
+      }
 
       // Normalize all links in payload to avoid 404
       if (Array.isArray(payload.links)) {
@@ -1377,31 +1441,35 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      // Check payment activation requirement
-      const user = db.users.find(u => (uemail && u.email.toLowerCase() === uemail) || (uname && u.username.toLowerCase() === uname));
-      if (user && !checkUserPaidStatus(user)) {
-        res.writeHead(402, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({
-          success: false,
-          requirePayment: true,
-          error: 'Tài khoản chưa hoàn tất kích hoạt (5.000 VNĐ). Vui lòng thanh toán để lưu và tạo trang Bio cá nhân!'
-        }));
-        return;
+      // Optimize avatar storage: if payload.avatar is large base64, save to static file
+      if (payload.avatar && payload.avatar.startsWith('data:image/')) {
+        try {
+          const match = payload.avatar.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+          if (match) {
+            const ext = match[1] === 'jpeg' ? '.jpg' : `.${match[1]}`;
+            const safeAvatarFile = `avatar_${uname}_${Date.now()}${ext}`;
+            const diskPath = path.join(UPLOADS_AVATARS_DIR, safeAvatarFile);
+            fs.writeFileSync(diskPath, Buffer.from(match[2], 'base64'));
+            payload.avatar = `/uploads/avatars/${safeAvatarFile}`;
+          }
+        } catch (avErr) {
+          console.warn('[Avatar Save Note]', avErr.message);
+        }
       }
 
-      // Update in corresponding user FIRST by email (or by username)
-      if (user) {
-        if (uname && user.username.toLowerCase() !== uname) {
-          const oldUname = user.username.toLowerCase();
-          user.username = uname;
+      // Update in corresponding user
+      if (targetUser) {
+        if (uname && targetUser.username.toLowerCase() !== uname) {
+          const oldUname = targetUser.username.toLowerCase();
+          targetUser.username = uname;
           db.bios[uname] = payload;
-          db.bios[oldUname] = payload; // Keep alias
+          db.bios[oldUname] = payload;
         } else {
-          db.bios[user.username.toLowerCase()] = payload;
+          db.bios[targetUser.username.toLowerCase()] = payload;
         }
-        user.bioData = payload;
-        if (payload.avatar) user.avatar = payload.avatar;
-        if (payload.name) user.name = payload.name;
+        targetUser.bioData = payload;
+        if (payload.avatar) targetUser.avatar = payload.avatar;
+        if (payload.name) targetUser.name = payload.name;
       }
 
       if (uname) {
@@ -1410,16 +1478,20 @@ const server = http.createServer(async (req, res) => {
 
       saveDatabase(db);
 
-      // Return immediate response so client gets instant confirmation (<50ms)
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true, message: 'Đã lưu trang Bio thành công trên máy chủ!' }));
-
-      // Background sync to dbLayer (non-blocking)
-      Promise.resolve().then(() => {
-        return dbLayer.saveBioData(uname || (user && user.username), payload);
-      }).catch(errSync => {
+      // Synchronize with database layer (MongoDB)
+      try {
+        await dbLayer.saveBioData(uname || (targetUser && targetUser.username), payload);
+      } catch (errSync) {
         console.warn('[MongoDB Sync] Bio sync note:', errSync.message);
-      });
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        success: true,
+        message: 'Đã lưu trang Bio thành công trên máy chủ!',
+        username: uname,
+        bio: payload
+      }));
       return;
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });

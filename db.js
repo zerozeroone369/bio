@@ -31,7 +31,7 @@ function saveLocalDb(data) {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
+    fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch (e) {
     console.error('[DB Local] Error saving file:', e.message);
   }
@@ -219,22 +219,34 @@ async function getBioByUsername(username) {
 async function saveBioData(username, bioData) {
   const cleanUsername = username.trim().toLowerCase();
   if (useMongo) {
-    await mongoDb.collection('bios').updateOne(
-      { username: cleanUsername },
-      { $set: { username: cleanUsername, ...bioData, updatedAt: new Date() } },
-      { upsert: true }
-    );
-    await mongoDb.collection('users').updateOne(
-      { username: cleanUsername },
-      { $set: { bioData } }
-    );
-    return true;
+    try {
+      await mongoDb.collection('bios').updateOne(
+        { username: cleanUsername },
+        { $set: { username: cleanUsername, ...bioData, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      const filter = bioData.email ? 
+        { $or: [{ username: cleanUsername }, { email: bioData.email.toLowerCase() }] } : 
+        { username: cleanUsername };
+      await mongoDb.collection('users').updateOne(
+        filter,
+        { $set: { username: cleanUsername, bioData, updatedAt: new Date().toISOString() } }
+      );
+    } catch (mErr) {
+      console.warn('[MongoDB Save Warning]', mErr.message);
+    }
   }
   const db = getLocalDb();
   db.bios[cleanUsername] = bioData;
-  const user = db.users.find(u => u.username.toLowerCase() === cleanUsername);
+  const user = db.users.find(u => 
+    (u.username && u.username.toLowerCase() === cleanUsername) || 
+    (bioData.email && u.email && u.email.toLowerCase() === bioData.email.toLowerCase())
+  );
   if (user) {
+    user.username = cleanUsername;
     user.bioData = bioData;
+    if (bioData.name) user.name = bioData.name;
+    if (bioData.avatar) user.avatar = bioData.avatar;
   }
   saveLocalDb(db);
   return true;
