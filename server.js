@@ -408,11 +408,11 @@ const server = http.createServer(async (req, res) => {
         }));
     }
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({
+    res.end(Buffer.from(JSON.stringify({
       success: true,
       clientIp,
       accounts: matched
-    }));
+    }), 'utf8'));
     return;
   }
 
@@ -985,7 +985,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true, message: 'Đổi mật khẩu thành công! Mật khẩu mới đã được lưu an toàn vào hệ thống.' }));
+      res.end(Buffer.from(JSON.stringify({ success: true, message: 'Đổi mật khẩu thành công! Mật khẩu mới đã được lưu an toàn vào hệ thống.' }), 'utf8'));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: false, error: e.message }));

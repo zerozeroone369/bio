@@ -11,19 +11,24 @@ const state = {
   totalSteps: 7,
   referral: 'instagram',
   platforms: ['youtube', 'facebook', 'instagram'],
-  avatar: 'assets/avatar_abg.jpg',
-  name: 'Abg',
-  username: 'abg',
-  bio: 'Digital Creator & Designer ✨ Chào mừng bạn đến với góc nhỏ của mình!',
+  avatar: 'assets/avatar_anh01.jpg',
+  name: 'anh01',
+  username: 'anh01',
+  bio: 'Digital Artist & Tarot Creator ✨ Chào mừng bạn đến với thế giới của tôi!',
   links: [
-    { id: 1, title: 'Fb', url: 'https://facebook.com/abg' },
-    { id: 2, title: 'Portfolio & Dự án mới', url: 'https://behance.net' }
+    { id: 1, title: 'Fb', url: 'https://www.facebook.com/share/16cBe6GtSe/' },
+    { id: 2, title: 'threads', url: 'https://threads.com/@tsu.anh.19' },
+    { id: 3, title: 'zalo', url: 'https://zaloapp.com/qr/p/12ws6gzq96r9j' },
+    { id: 4, title: 'locket', url: 'https://locket.cam/anh00002' },
+    { id: 5, title: 'tt phụ', url: 'https://tiktok.com/@anh_0408' },
+    { id: 6, title: 'tt chính', url: 'https://tiktok.com/@rwxy.sitn_' },
+    { id: 7, title: 'inta', url: 'https://instagram.com/2005.nnt' }
   ],
   socials: {
-    instagram: 'https://instagram.com/abg',
-    tiktok: 'https://tiktok.com/@abg',
-    youtube: 'https://youtube.com/@abg',
-    facebook: 'https://facebook.com/abg',
+    instagram: 'https://instagram.com/2005.nnt',
+    tiktok: 'https://tiktok.com/@rwxy.sitn_',
+    youtube: '',
+    facebook: 'https://www.facebook.com/share/16cBe6GtSe/',
     twitter: '',
     coffee: '',
     snapchat: '',
@@ -378,7 +383,7 @@ function fetchNetworkInfo() {
    ========================================================================== */
 
 function getCleanDefaultBio(user = null) {
-  let fallbackUsername = user?.email ? user.email.split('@')[0].replace(/[^a-z0-9_\-]/g, '') : 'user';
+  let fallbackUsername = user?.email ? user.email.split('@')[0].replace(/[^a-z0-9_\-]/g, '') : 'anh01';
   if (user?.email && user.email.toLowerCase() === 'teome5575@gmail.com') {
     fallbackUsername = 'anh01';
   }
@@ -388,6 +393,33 @@ function getCleanDefaultBio(user = null) {
   }
   const name = user?.name || (username.charAt(0).toUpperCase() + username.slice(1));
   const avatar = user?.avatar || 'assets/avatar_anh01.jpg';
+
+  if (username === 'anh01' || (user?.email && user.email.toLowerCase() === 'teome5575@gmail.com')) {
+    return {
+      name: 'anh01',
+      username: 'anh01',
+      email: 'teome5575@gmail.com',
+      bio: 'Digital Artist & Tarot Creator ✨ Chào mừng bạn đến với thế giới của tôi!',
+      avatar: 'assets/avatar_anh01.jpg',
+      theme: 'rainy_night',
+      links: [
+        { id: 1, title: 'Fb', url: 'https://www.facebook.com/share/16cBe6GtSe/' },
+        { id: 2, title: 'threads', url: 'https://threads.com/@tsu.anh.19' },
+        { id: 3, title: 'zalo', url: 'https://zaloapp.com/qr/p/12ws6gzq96r9j' },
+        { id: 4, title: 'locket', url: 'https://locket.cam/anh00002' },
+        { id: 5, title: 'tt phụ', url: 'https://tiktok.com/@anh_0408' },
+        { id: 6, title: 'tt chính', url: 'https://tiktok.com/@rwxy.sitn_' },
+        { id: 7, title: 'inta', url: 'https://instagram.com/2005.nnt' }
+      ],
+      socials: {
+        instagram: 'https://instagram.com/2005.nnt',
+        tiktok: 'https://tiktok.com/@rwxy.sitn_',
+        youtube: '',
+        facebook: 'https://www.facebook.com/share/16cBe6GtSe/'
+      },
+      video: { url: null, name: '', size: '', overlay: 40, blur: 0, muted: true }
+    };
+  }
 
   return {
     name: name,
@@ -521,6 +553,37 @@ function resetStateToUser(user = null, bioData = null) {
   if (dom.userBioInput) dom.userBioInput.value = state.bio;
   if (dom.avatarPreviewImg) dom.avatarPreviewImg.src = state.avatar;
   if (dom.bioCharCounter) dom.bioCharCounter.textContent = `${state.bio.length}/255`;
+
+  // Update social inputs in wizard
+  const instaInp = document.getElementById('socialInstagramInput');
+  const tiktokInp = document.getElementById('socialTiktokInput');
+  const ytInp = document.getElementById('socialYoutubeInput');
+  if (instaInp) instaInp.value = state.socials.instagram || '';
+  if (tiktokInp) tiktokInp.value = state.socials.tiktok || '';
+  if (ytInp) ytInp.value = state.socials.youtube || '';
+
+  // Synchronize wizard customLinksList with actual state.links
+  if (dom.customLinksList) {
+    dom.customLinksList.innerHTML = '';
+    if (Array.isArray(state.links) && state.links.length > 0) {
+      state.links.forEach(link => {
+        const row = document.createElement('div');
+        row.className = 'custom-link-row';
+        row.innerHTML = `
+          <div class="row-field">
+            <label class="input-sublabel">Tên liên kết</label>
+            <input type="text" class="input-modern link-title-input" value="${escapeHtml(link.title)}" placeholder="Ví dụ: Trang Facebook, Portfolio...">
+          </div>
+          <div class="row-field">
+            <label class="input-sublabel">URL</label>
+            <input type="text" class="input-modern link-url-input" value="${escapeHtml(link.url)}" placeholder="https://...">
+          </div>
+        `;
+        dom.customLinksList.appendChild(row);
+      });
+    }
+    bindCustomLinkInputs();
+  }
 
   applyTheme(state.theme);
   updatePhonePreview();
@@ -967,11 +1030,27 @@ function showMyPublicBio() {
     openAuthModal('login', '🔒 Vui lòng đăng nhập để xem trang Bio công khai của bạn!');
     return;
   }
-  // Ensure current user's bio is loaded cleanly
-  resetStateToUser(currentUser, currentUser.bioData);
+  const u = currentUser.username || state.username || 'anh01';
+  // ALWAYS fetch fresh bio from server to ensure latest edits are shown!
+  fetch(`/api/bio/${encodeURIComponent(u)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.success && res.bio) {
+        currentUser.bioData = res.bio;
+        try { localStorage.setItem('biolink_current_user', JSON.stringify(currentUser)); } catch (_) {}
+        resetStateToUser(currentUser, res.bio);
+        applyTheme(res.bio.theme || 'rainy_night', res.bio);
+        updatePublicBioView(res.bio, true);
+      } else {
+        resetStateToUser(currentUser, currentUser.bioData);
+        updatePublicBioView(currentUser.bioData, true);
+      }
+    })
+    .catch(() => {
+      resetStateToUser(currentUser, currentUser.bioData);
+      updatePublicBioView(currentUser.bioData, true);
+    });
 
-  // Sync browser URL to this user's username
-  const u = currentUser.username || state.username || 'user';
   const newUrl = `/${encodeURIComponent(u)}`;
   window.history.replaceState({ username: u }, '', newUrl);
 
@@ -997,43 +1076,63 @@ async function saveCurrentBioToUserAsync(showSuccessFeedback = true, btnElem = n
   }
 
   try {
-    // 1. Sync any active form inputs into state before saving
-    if (dom.userNameInput && dom.userNameInput.value) state.name = dom.userNameInput.value.trim();
-    if (dom.userBioInput) state.bio = dom.userBioInput.value;
-    if (dom.userSlugInput && dom.userSlugInput.value) {
-      state.username = dom.userSlugInput.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    }
+    // 1. Sync form inputs ONLY from the currently active view to prevent hidden inputs from corrupting state
+    const isStudioVisible = dom.splitStudioSection && !dom.splitStudioSection.classList.contains('hidden-view');
+    const isWizardVisible = dom.wizardSection && !dom.wizardSection.classList.contains('hidden-view');
 
-    const studioName = document.getElementById('studioNameInput');
-    if (studioName && studioName.value) state.name = studioName.value.trim();
-    const studioBio = document.getElementById('studioBioInput');
-    if (studioBio) state.bio = studioBio.value;
-    const studioSlug = document.getElementById('studioSlugInput');
-    if (studioSlug && studioSlug.value) {
-      state.username = studioSlug.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    }
+    if (isStudioVisible) {
+      const studioName = document.getElementById('studioNameInput');
+      if (studioName && studioName.value.trim()) state.name = studioName.value.trim();
+      const studioBio = document.getElementById('studioBioInput');
+      if (studioBio) state.bio = studioBio.value;
+      const studioSlug = document.getElementById('studioSlugInput');
+      if (studioSlug && studioSlug.value.trim()) {
+        state.username = studioSlug.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      }
 
-    // Sync links from studio or wizard if active
-    const studioLinksWrapper = document.getElementById('studioLinksWrapper');
-    if (studioLinksWrapper) {
-      const cards = studioLinksWrapper.querySelectorAll('.studio-link-card');
-      if (cards.length > 0) {
-        state.links = [];
+      const studioLinksWrapper = document.getElementById('studioLinksWrapper');
+      if (studioLinksWrapper) {
+        const cards = studioLinksWrapper.querySelectorAll('.studio-link-card');
+        const updatedLinks = [];
         cards.forEach((card, idx) => {
           const titleInp = card.querySelector('.studio-link-title');
           const urlInp = card.querySelector('.studio-link-url');
           if (titleInp && urlInp) {
-            state.links.push({
+            updatedLinks.push({
               id: parseInt(card.dataset.linkId, 10) || (Date.now() + idx),
               title: titleInp.value.trim() || 'Liên kết',
               url: normalizeExternalUrl(urlInp.value.trim() || '#')
             });
           }
         });
+        state.links = updatedLinks;
       }
-    } else if (dom.customLinksList && dom.customLinksList.querySelectorAll('.custom-link-row').length > 0) {
-      bindCustomLinkInputs();
+    } else if (isWizardVisible) {
+      if (dom.userNameInput && dom.userNameInput.value.trim()) state.name = dom.userNameInput.value.trim();
+      if (dom.userBioInput) state.bio = dom.userBioInput.value;
+      if (dom.userSlugInput && dom.userSlugInput.value.trim()) {
+        state.username = dom.userSlugInput.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      }
+      if (state.step === 5 && dom.customLinksList) {
+        const rows = dom.customLinksList.querySelectorAll('.custom-link-row');
+        if (rows.length > 0) {
+          const wizardLinks = [];
+          rows.forEach((row, idx) => {
+            const titleInput = row.querySelector('.link-title-input');
+            const urlInput = row.querySelector('.link-url-input');
+            if (titleInput && urlInput) {
+              wizardLinks.push({
+                id: Date.now() + idx,
+                title: titleInput.value.trim() || 'Liên kết',
+                url: normalizeExternalUrl(urlInput.value.trim() || '#')
+              });
+            }
+          });
+          state.links = wizardLinks;
+        }
+      }
     }
+    // If in public view or other views: state.links, state.name, state.bio remain 100% intact!
 
     let targetUsername = (state.username || currentUser.username || 'user').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
     // Guarantee teome5575@gmail.com is strictly anh01
@@ -3625,6 +3724,13 @@ function renderStudioPane(paneId) {
         <label class="input-label">Ảnh đại diện</label>
         <button type="button" class="btn-gradient-submit" id="btnStudioChangeAvatar" style="padding: 10px 16px; font-size: 14px;">Đổi ảnh đại diện</button>
       </div>
+      <div class="form-group-floating" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.08);">
+        <label class="input-label" style="font-weight: 700; color: #38bdf8;">Bảo mật & Đổi mật khẩu</label>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">Đổi mật khẩu tài khoản của bạn để tăng tính bảo mật.</p>
+        <button type="button" class="btn-gradient-submit" id="btnStudioOpenChangePwd" style="background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 10px 16px; font-size: 14px; width: 100%;">
+          🔒 Đổi mật khẩu tài khoản
+        </button>
+      </div>
     `;
     document.getElementById('studioNameInput').oninput = (e) => {
       state.name = e.target.value;
@@ -3653,6 +3759,10 @@ function renderStudioPane(paneId) {
       saveCurrentBioToUser();
     };
     document.getElementById('btnStudioChangeAvatar').onclick = () => dom.avatarFileInput.click();
+    const btnPwd = document.getElementById('btnStudioOpenChangePwd');
+    if (btnPwd) {
+      btnPwd.onclick = () => openChangePasswordModal();
+    }
   } else if (paneId === 'pane-links') {
     container.innerHTML = `
       <h3 style="font-size: 16px; margin-bottom: 12px; font-weight: 700;">Danh sách liên kết</h3>
@@ -3695,7 +3805,8 @@ function renderStudioPane(paneId) {
         saveCurrentBioToUser();
       };
       delBtn.onclick = () => {
-        state.links.splice(idx, 1);
+        const linkIdToDelete = link.id;
+        state.links = state.links.filter(l => (l.id || l) !== linkIdToDelete);
         renderStudioPane('pane-links');
         updatePhonePreview();
         updatePublicBioView();
